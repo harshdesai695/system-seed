@@ -2,7 +2,9 @@
 
 **Microservices Architecture** breaks a large application into small, independent services that each handle one specific business function, communicate via APIs, and can be developed, deployed, and scaled independently.
 
-> **Real-world analogy:** Think of a **food court** vs a **single restaurant**. A single restaurant (monolith) has one kitchen doing everything — pizza, sushi, burgers. If the pizza oven breaks, the whole kitchen stops. A food court (microservices) has separate vendors: one for pizza, one for sushi, one for burgers. Each operates independently. If the pizza shop closes, you can still get sushi.
+<Callout type="tip" title="Real-World Analogy">
+  Think of a **food court** vs a **single restaurant**. A single restaurant (monolith) has one kitchen doing everything — pizza, sushi, burgers. If the pizza oven breaks, the whole kitchen stops. A food court (microservices) has separate vendors: one for pizza, one for sushi, one for burgers. Each operates independently. If the pizza shop closes, you can still get sushi.
+</Callout>
 
 ---
 
@@ -208,18 +210,25 @@ public:
 
 ## 📝 Quick Quiz
 
-**Q1: A startup with 3 engineers is building their first product. Should they use microservices?**
+<Quiz
+  question="A startup with 3 engineers is building their first product. Should they use microservices?"
+  options={[
+    { label: "Yes — it's industry best practice" },
+    { label: "No — start with a monolith, split later when needed", correct: true },
+    { label: "Only if they use Kubernetes" },
+  ]}
+  explanation="At small scale, a monolith is simpler to develop, deploy, and debug. Microservices add significant operational complexity. Start monolithic and extract services as the team and product grow."
+/>
 
-A) Yes — it's industry best practice
-B) No — start with a monolith, split later when needed
-
-**Answer: B** — Microservices add significant operational overhead. A small team should start with a monolith and extract services as the team and domain grow.
-
-**Q2: In a microservices architecture, the Payment Service calls the Inventory Service, which calls the Shipping Service. The Shipping Service is down. What pattern prevents cascading failures?**
-
-A) API Gateway  B) Circuit Breaker  C) Event Sourcing
-
-**Answer: B** — Circuit Breaker detects the Shipping Service is down and "opens the circuit," returning a fallback response instead of timing out and cascading the failure upward.
+<Quiz
+  question="In a microservices system, the Order Service calls the Shipping Service but it's down. What pattern prevents cascading failures?"
+  options={[
+    { label: "API Gateway" },
+    { label: "Circuit Breaker", correct: true },
+    { label: "Event Sourcing" },
+  ]}
+  explanation="Circuit Breaker detects the Shipping Service is down and opens the circuit, returning a fallback response instead of timing out and cascading the failure upward."
+/>
 
 ---
 

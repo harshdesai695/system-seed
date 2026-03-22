@@ -2,7 +2,9 @@
 
 **Rate Limiting** controls how many requests a user or client can make to a service within a given time window. It protects systems from being overwhelmed.
 
-> **Real-world analogy:** Think of a **theme park** that only lets 100 people in per hour. Once the limit is reached, newcomers must wait. This prevents overcrowding and ensures everyone inside has a good experience.
+<Callout type="tip" title="Real-World Analogy">
+  Think of a **theme park** that only lets 100 people in per hour. Once the limit is reached, newcomers must wait. This prevents overcrowding and ensures everyone inside has a good experience.
+</Callout>
 
 ---
 
@@ -12,7 +14,19 @@
 
 ---
 
-## 🔍 Common Algorithms
+## 🔍 How Rate Limiting Works
+
+<StepDiagram
+  title="Rate Limiting Request Flow"
+  steps={[
+    { title: "Request Arrives", description: "Client sends API request", icon: "globe" },
+    { title: "Check Limit", description: "Count tokens or requests", icon: "cpu" },
+    { title: "Allow or Reject", description: "Within limit → allow; exceeded → 429", icon: "shield" },
+    { title: "Update Counter", description: "Decrement tokens/increment count", icon: "server" },
+  ]}
+/>
+
+## Common Algorithms
 
 ### 1. Token Bucket
 A bucket holds tokens. Each request consumes one token. Tokens are added at a fixed rate. If the bucket is empty, requests are rejected.

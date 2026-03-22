@@ -2,13 +2,17 @@
 
 **Scalability** is the ability of a system to handle increasing amounts of work by adding resources. Think of it as your system's ability to grow without breaking.
 
-> **Real-world analogy:** Imagine you run a lemonade stand. When summer hits and more customers show up, you have two choices: get a **bigger table** (vertical scaling) or open **more stands** (horizontal scaling).
+<Callout type="tip" title="Real-World Analogy">
+  Imagine you run a lemonade stand. When summer hits and more customers show up, you have two choices: get a **bigger table** (vertical scaling) or open **more stands** (horizontal scaling).
+</Callout>
 
 ---
 
 ## 🌍 Real-World Example
 
-**Netflix** serves over 200 million subscribers streaming video simultaneously. They can't handle all that traffic on a single server. Instead, Netflix uses **horizontal scaling** — running thousands of servers across AWS data centers worldwide. When a new show drops and millions of users rush to watch, Netflix automatically adds more servers to handle the load.
+<Callout type="info" title="Netflix at Scale">
+  **Netflix** serves over 200 million subscribers streaming video simultaneously. They can't handle all that traffic on a single server. Instead, Netflix uses **horizontal scaling** — running thousands of servers across AWS data centers worldwide. When a new show drops and millions of users rush to watch, Netflix automatically adds more servers to handle the load.
+</Callout>
 
 ---
 
@@ -38,6 +42,12 @@ Adding **more servers** to share the workload.
 
 ---
 
+## 🖥️ Try It Yourself
+
+<ScalingVisualizer />
+
+---
+
 ## 📊 Comparison: Vertical vs Horizontal
 
 | Factor | Vertical Scaling | Horizontal Scaling |
@@ -48,6 +58,35 @@ Adding **more servers** to share the workload.
 | **Data Consistency** | Easy | Requires careful design |
 | **Max Capacity** | Limited by hardware | Virtually unlimited |
 | **Downtime** | Required for upgrades | Zero-downtime scaling |
+
+<ComparisonBarChart
+  title="Scaling Strategy Comparison"
+  data={[
+    { name: "Cost Efficiency", vertical: 30, horizontal: 85 },
+    { name: "Simplicity", vertical: 90, horizontal: 40 },
+    { name: "Fault Tolerance", vertical: 20, horizontal: 90 },
+    { name: "Max Throughput", vertical: 40, horizontal: 95 },
+    { name: "Data Consistency", vertical: 95, horizontal: 50 },
+  ]}
+  bars={[
+    { dataKey: "vertical", color: "#3b82f6", label: "Vertical Scaling" },
+    { dataKey: "horizontal", color: "#10b981", label: "Horizontal Scaling" },
+  ]}
+/>
+
+---
+
+## 🔄 How Horizontal Scaling Works
+
+<StepDiagram
+  title="Request Flow with Horizontal Scaling"
+  steps={[
+    { title: "Client", description: "Sends request", icon: "globe" },
+    { title: "Load Balancer", description: "Routes traffic", icon: "shield" },
+    { title: "Server Pool", description: "Processes request", icon: "server" },
+    { title: "Database", description: "Stores data", icon: "database" },
+  ]}
+/>
 
 ---
 
@@ -151,7 +190,9 @@ public:
 - **Vertical Scaling**: Early-stage startups, small databases, applications with strong consistency requirements
 - **Horizontal Scaling**: High-traffic web apps, microservices, when you need fault tolerance and high availability
 
-> **Rule of thumb**: Start with vertical scaling for simplicity. Switch to horizontal scaling when you outgrow a single machine or need fault tolerance.
+<Callout type="important" title="Rule of Thumb">
+  Start with vertical scaling for simplicity. Switch to horizontal scaling when you outgrow a single machine or need fault tolerance.
+</Callout>
 
 ---
 
@@ -165,20 +206,24 @@ public:
 
 ## 📝 Quick Quiz
 
-**Q1: A startup with 100 users needs their database to be faster. They have a single PostgreSQL server. What scaling approach should they try first?**
+<Quiz
+  question="A startup with 100 users needs their database to be faster. They have a single PostgreSQL server. What scaling approach should they try first?"
+  options={[
+    { label: "Horizontal scaling — add more database servers immediately" },
+    { label: "Vertical scaling — upgrade the server's RAM and CPU", correct: true },
+    { label: "Rewrite the entire application" },
+  ]}
+  explanation="At small scale, vertical scaling is simpler and more cost-effective. There's no need to introduce the complexity of distributed databases when upgrading hardware can solve the problem."
+/>
 
-A) Horizontal scaling — add more database servers immediately
-B) Vertical scaling — upgrade the server's RAM and CPU
-C) Rewrite the entire application
-
-**Answer: B** — At small scale, vertical scaling is simpler and more cost-effective. There's no need to introduce the complexity of distributed databases when upgrading hardware can solve the problem.
-
-**Q2: Netflix wants to handle a 10x traffic spike for a new show release. Which approach is better?**
-
-A) Buy one super-powerful server
-B) Automatically spin up more servers as demand increases
-
-**Answer: B** — Horizontal scaling allows Netflix to dynamically add servers during peak demand and remove them when traffic normalizes, making it cost-effective and fault-tolerant.
+<Quiz
+  question="Netflix wants to handle a 10x traffic spike for a new show release. Which approach is better?"
+  options={[
+    { label: "Buy one super-powerful server" },
+    { label: "Automatically spin up more servers as demand increases", correct: true },
+  ]}
+  explanation="Horizontal scaling allows Netflix to dynamically add servers during peak demand and remove them when traffic normalizes, making it cost-effective and fault-tolerant."
+/>
 
 ---
 

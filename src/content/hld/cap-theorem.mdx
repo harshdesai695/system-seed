@@ -2,7 +2,9 @@
 
 **CAP Theorem** states that a distributed system can only guarantee **two out of three** properties simultaneously: **Consistency**, **Availability**, and **Partition Tolerance**.
 
-> **Real-world analogy:** Imagine two bank branches (Branch A and Branch B) connected by a phone line. You have $100 in your account. If the phone line goes down (**partition**), the branches face a choice: either both **stop accepting transactions** until the line is restored (choosing **Consistency** over Availability) or both **keep serving customers** based on their last known balance, risking duplicate withdrawals (choosing **Availability** over Consistency).
+<Callout type="tip" title="Real-World Analogy">
+  Imagine two bank branches (Branch A and Branch B) connected by a phone line. You have $100 in your account. If the phone line goes down (**partition**), the branches face a choice: either both **stop accepting transactions** until the line is restored (choosing **Consistency** over Availability) or both **keep serving customers** based on their last known balance, risking duplicate withdrawals (choosing **Availability** over Consistency).
+</Callout>
 
 ---
 
@@ -35,7 +37,9 @@ The system continues to **operate** even when network communication between node
 | **AP** | Availability + Partition Tolerance | Consistency (stale reads possible) | Cassandra, DynamoDB, CouchDB |
 | **CA** | Consistency + Availability | Partition Tolerance | Traditional RDBMS (single node) |
 
-> **Important:** In a distributed system, network partitions **will** happen. You can't avoid P. So the real choice is between **CP** and **AP**.
+<Callout type="important" title="Important">
+  In a distributed system, network partitions **will** happen. You can't avoid P. So the real choice is between **CP** and **AP**.
+</Callout>
 
 ---
 
@@ -206,19 +210,16 @@ CAP only describes behavior **during a partition**. The **PACELC theorem** exten
 
 ## 📝 Quick Quiz
 
-**Q1: Your e-commerce site has a flash sale. Thousands of users are buying the same item. You can't oversell. Which is correct?**
-
-A) Choose AP — keep the site available at all costs
-B) Choose CP — ensure consistent inventory counts even if some requests fail
-
-**Answer: B** — Overselling would cost the company money and trust. Better to reject some requests during partitions than sell items you don't have.
-
-**Q2: A social media app shows a post's like count. During a network partition, counts on different servers diverge. Is this acceptable?**
-
-A) No — users must always see the exact like count
-B) Yes — showing 1,003 likes vs 1,005 likes is fine; availability matters more
-
-**Answer: B** — Social media likes are a classic AP use case. Showing a slightly stale count is acceptable; showing an error page is not.
+<Quiz
+  question="Your e-commerce site has a flash sale. Thousands of users are buying the same item. You can't oversell. Which is correct?"
+  options={[
+    { label: "Choose AP — keep the site available at all costs" },
+    { label: "Choose CP — ensure consistent inventory counts even if some requests fail", correct: true },
+    { label: "No — users must always see the exact like count" },
+    { label: "Yes — showing 1,003 likes vs 1,005 likes is fine; availability matters more", correct: true },
+  ]}
+  explanation="Social media likes are a classic AP use case. Showing a slightly stale count is acceptable; showing an error page is not."
+/>
 
 ---
 

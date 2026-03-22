@@ -2,7 +2,9 @@
 
 **Database Sharding** is the practice of splitting a large database into smaller, faster, more manageable pieces called **shards**. Each shard holds a subset of the total data and runs on its own server.
 
-> **Real-world analogy:** Imagine a **public library** that has grown too big for one building. Instead of one massive library, the city builds **three branches**: Branch A holds books by authors A-H, Branch B holds I-P, and Branch C holds Q-Z. Each branch is smaller and faster to search. That's sharding — splitting data across multiple "branches."
+<Callout type="tip" title="Real-World Analogy">
+  Imagine a **public library** that has grown too big for one building. Instead of one massive library, the city builds **three branches**: Branch A holds books by authors A-H, Branch B holds I-P, and Branch C holds Q-Z. Each branch is smaller and faster to search. That's sharding — splitting data across multiple "branches."
+</Callout>
 
 ---
 
@@ -30,6 +32,16 @@ The **shard key** determines which shard a piece of data goes to. Choosing the r
 2. **Router** applies the shard function to determine the target shard
 3. **Request** is routed to the correct shard
 4. **Shard** processes the query and returns the result
+
+<StepDiagram
+  title="Database Sharding Request Flow"
+  steps={[
+    { title: "Client Query", description: "Sends query with shard key", icon: "globe" },
+    { title: "Shard Router", description: "Applies hash/range function", icon: "cpu" },
+    { title: "Target Shard", description: "Routes to correct shard", icon: "database" },
+    { title: "Return Result", description: "Shard processes & returns data", icon: "server" },
+  ]}
+/>
 
 ---
 
@@ -192,21 +204,18 @@ public:
 
 ## 📝 Quick Quiz
 
-**Q1: You have a users table with 10 billion rows. Queries are slow. What should you consider first?**
-
-A) Delete old users
-B) Database sharding by user ID
-C) Switch from SQL to NoSQL
-
-**Answer: B** — Sharding distributes the data across multiple servers, reducing the size each server must handle.
-
-**Q2: You shard by user's country, but 60% of your users are in the US. What problem will you face?**
-
-A) Cross-shard queries
-B) Hotspot — the US shard is overloaded
-C) Data loss
-
-**Answer: B** — Geographic sharding with uneven distribution creates hotspots. Hash-based sharding would distribute more evenly.
+<Quiz
+  question="You have a users table with 10 billion rows. Queries are slow. What should you consider first?"
+  options={[
+    { label: "Delete old users" },
+    { label: "Database sharding by user ID", correct: true },
+    { label: "Switch from SQL to NoSQL" },
+    { label: "Cross-shard queries" },
+    { label: "Hotspot — the US shard is overloaded", correct: true },
+    { label: "Data loss" },
+  ]}
+  explanation="Geographic sharding with uneven distribution creates hotspots. Hash-based sharding would distribute more evenly."
+/>
 
 ---
 

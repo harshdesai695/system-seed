@@ -2,7 +2,9 @@
 
 **Load Balancing** is the process of distributing incoming network traffic across multiple servers so that no single server bears too much demand.
 
-> **Real-world analogy:** Think of a **restaurant host** who seats guests across all available tables. Without a host, everyone would crowd at the first table while other tables sit empty. The host ensures every table gets a fair share of diners — that's exactly what a load balancer does for servers.
+<Callout type="tip" title="Real-World Analogy">
+  Think of a **restaurant host** who seats guests across all available tables. Without a host, everyone would crowd at the first table while other tables sit empty. The host ensures every table gets a fair share of diners — that's exactly what a load balancer does for servers.
+</Callout>
 
 ---
 
@@ -23,6 +25,16 @@ A load balancer sits between clients (users) and servers. When a request arrives
 5. **Load Balancer** forwards the response to the client
 
 The client never knows which server handled their request — it's all transparent.
+
+<StepDiagram
+  title="🔄 Request Flow Through a Load Balancer"
+  steps={[
+    { title: "Client", description: "Sends request", icon: "globe" },
+    { title: "Load Balancer", description: "Picks a server", icon: "shield" },
+    { title: "Server", description: "Processes request", icon: "server" },
+    { title: "Database", description: "Retrieves data", icon: "database" },
+  ]}
+/>
 
 ---
 
@@ -215,21 +227,18 @@ public:
 
 ## 📝 Quick Quiz
 
-**Q1: Your web app has 3 servers. Server A is twice as powerful as servers B and C. Which algorithm should you use?**
-
-A) Round Robin
-B) Weighted Round Robin
-C) IP Hash
-
-**Answer: B** — Weighted Round Robin lets you assign higher weights to more powerful servers, sending them proportionally more traffic.
-
-**Q2: Users are complaining that their shopping cart items disappear when they refresh. Your load balancer uses Round Robin. What's likely happening?**
-
-A) The database is losing data
-B) Requests are going to different servers, and cart data is stored in server memory
-C) The load balancer is dropping packets
-
-**Answer: B** — With Round Robin, each request might go to a different server. If session data is stored in server memory (not shared), users lose their cart. Solutions: use IP Hash (sticky sessions) or externalize session state to Redis.
+<Quiz
+  question="Your web app has 3 servers. Server A is twice as powerful as servers B and C. Which algorithm should you use?"
+  options={[
+    { label: "Round Robin" },
+    { label: "Weighted Round Robin", correct: true },
+    { label: "IP Hash" },
+    { label: "The database is losing data" },
+    { label: "Requests are going to different servers, and cart data is stored in server memory", correct: true },
+    { label: "The load balancer is dropping packets" },
+  ]}
+  explanation="With Round Robin, each request might go to a different server. If session data is stored in server memory (not shared), users lose their cart. Solutions: use IP Hash (sticky sessions) or externalize session state to Redis."
+/>
 
 ---
 

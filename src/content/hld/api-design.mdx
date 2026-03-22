@@ -2,7 +2,9 @@
 
 **API (Application Programming Interface) Design** is the practice of defining how software components communicate with each other. The three most popular API paradigms are **REST**, **GraphQL**, and **gRPC**.
 
-> **Real-world analogy:** Think of ordering food. **REST** is like a fixed menu — you pick item #3 and get exactly what they serve. **GraphQL** is like a buffet — you pick exactly what you want from each dish. **gRPC** is like a drive-through intercom — ultra fast, but both you and the restaurant need to speak the same protocol.
+<Callout type="tip" title="Real-World Analogy">
+  Think of ordering food. **REST** is like a fixed menu — you pick item #3 and get exactly what they serve. **GraphQL** is like a buffet — you pick exactly what you want from each dish. **gRPC** is like a drive-through intercom — ultra fast, but both you and the restaurant need to speak the same protocol.
+</Callout>
 
 ---
 
@@ -34,7 +36,22 @@ A high-performance RPC framework using Protocol Buffers for serialization.
 
 ---
 
-## 📊 Comparison
+## � API Request Lifecycle
+
+<StepDiagram
+  title="REST API Request-Response Cycle"
+  steps={[
+    { title: "Client Request", description: "HTTP method + URL + body", icon: "globe" },
+    { title: "API Gateway", description: "Auth, rate limiting, routing", icon: "shield" },
+    { title: "Business Logic", description: "Process & validate", icon: "cpu" },
+    { title: "Database", description: "Query/mutation", icon: "database" },
+    { title: "Response", description: "Status code + JSON body", icon: "server" },
+  ]}
+/>
+
+---
+
+## �📊 Comparison
 
 | Feature | REST | GraphQL | gRPC |
 |---------|:---:|:---:|:---:|

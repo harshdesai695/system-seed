@@ -2,7 +2,9 @@
 
 **Message Queues** are a communication mechanism that allows different parts of a system to exchange information asynchronously. Instead of talking directly, services drop messages into a queue, and other services pick them up when ready.
 
-> **Real-world analogy:** Think of a **restaurant kitchen**. Waiters don't cook food themselves — they write orders on tickets and place them on a **ticket rail** (the queue). Cooks pick up tickets when they're ready. The waiter doesn't wait in the kitchen; they go serve other tables. If a cook is busy, tickets just stack up and are processed in order.
+<Callout type="tip" title="Real-World Analogy">
+  Think of a **restaurant kitchen**. Waiters don't cook food themselves — they write orders on tickets and place them on a **ticket rail** (the queue). Cooks pick up tickets when they're ready. The waiter doesn't wait in the kitchen; they go serve other tables. If a cook is busy, tickets just stack up and are processed in order.
+</Callout>
 
 ---
 
@@ -30,6 +32,16 @@
 3. Broker stores the message in the appropriate **queue/topic**
 4. **Consumer** pulls the message and processes it
 5. Consumer **acknowledges** successful processing
+
+<StepDiagram
+  title="Message Queue Workflow"
+  steps={[
+    { title: "Producer", description: "Creates message", icon: "server" },
+    { title: "Broker", description: "Stores in queue/topic", icon: "storage" },
+    { title: "Consumer", description: "Pulls & processes", icon: "cpu" },
+    { title: "Acknowledge", description: "Confirms completion", icon: "shield" },
+  ]}
+/>
 
 ---
 
@@ -246,19 +258,16 @@ public:
 
 ## 📝 Quick Quiz
 
-**Q1: Your system sends email confirmations after a purchase. Should the API wait for the email to be sent before responding?**
-
-A) Yes — the user needs to know the email was sent
-B) No — publish to a queue and respond immediately
-
-**Answer: B** — Email sending is not time-critical. Publishing to a queue and returning immediately gives the user a fast response. The email service processes the queue independently.
-
-**Q2: What's the main difference between a queue and a topic?**
-
-A) Queues are faster
-B) In a queue, each message is consumed by one consumer. In a topic, all subscribers get every message.
-
-**Answer: B** — Queues distribute messages, topics broadcast them.
+<Quiz
+  question="Your system sends email confirmations after a purchase. Should the API wait for the email to be sent before responding?"
+  options={[
+    { label: "Yes — the user needs to know the email was sent" },
+    { label: "No — publish to a queue and respond immediately", correct: true },
+    { label: "Queues are faster" },
+    { label: "In a queue, each message is consumed by one consumer. In a topic, all subscribers get every message.", correct: true },
+  ]}
+  explanation="Queues distribute messages, topics broadcast them."
+/>
 
 ---
 

@@ -2,7 +2,9 @@
 
 A **distributed system** is a collection of independent computers that appear to users as a single coherent system. These machines communicate over a network and coordinate their actions to achieve a common goal.
 
-> **Real-world analogy:** Think of a **global pizza chain** like Domino's. Each outlet operates independently (takes orders, makes pizza, delivers), but to a customer, it's all "Domino's." They share recipes, coordinate branding, handle failures locally, and each outlet can serve customers even if others go down. That's a distributed system.
+<Callout type="tip" title="Real-World Analogy">
+  Think of a **global pizza chain** like Domino's. Each outlet operates independently (takes orders, makes pizza, delivers), but to a customer, it's all "Domino's." They share recipes, coordinate branding, handle failures locally, and each outlet can serve customers even if others go down. That's a distributed system.
+</Callout>
 
 ---
 
@@ -13,6 +15,20 @@ A **distributed system** is a collection of independent computers that appear to
 ---
 
 ## 🔍 Key Properties
+
+<ArchitectureDiagram
+  title="Distributed System Components"
+  nodes={[
+    { label: "Web Client", type: "client" },
+    { label: "Load Balancer", type: "service" },
+    { label: "App Server 1", type: "server" },
+    { label: "App Server 2", type: "server" },
+    { label: "Message Queue", type: "queue" },
+    { label: "Cache Layer", type: "cache" },
+    { label: "Primary DB", type: "database" },
+    { label: "Replica DB", type: "database" },
+  ]}
+/>
 
 ### The 8 Fallacies of Distributed Computing
 

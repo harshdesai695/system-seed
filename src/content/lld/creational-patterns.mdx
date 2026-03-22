@@ -2,7 +2,9 @@
 
 **Creational Design Patterns** deal with object creation mechanisms — they provide ways to create objects while hiding the creation logic, making systems more flexible about **which** objects get created, **how** they get created, and **who** creates them.
 
-> **Real-world analogy:** Instead of baking every cake from scratch yourself, you can use a **recipe** (Factory), follow a **step-by-step guide** (Builder), order a **pre-made copy** (Prototype), or get it from the **one and only bakery in town** (Singleton).
+<Callout type="tip" title="Real-World Analogy">
+  Instead of baking every cake from scratch yourself, you can use a **recipe** (Factory), follow a **step-by-step guide** (Builder), order a **pre-made copy** (Prototype), or get it from the **one and only bakery in town** (Singleton).
+</Callout>
 
 ---
 
@@ -444,17 +446,14 @@ public:
 
 ## 📝 Quick Quiz
 
-**Q1: Your app needs exactly one database connection pool shared across all services. Which pattern?**
-
-A) Factory  B) Builder  C) Singleton
-
-**Answer: C** — Singleton ensures only one instance of the connection pool exists.
-
-**Q2: You're building a document converter that can output PDF, Word, or HTML. The output type is determined by user input. Which pattern?**
-
-A) Singleton  B) Factory  C) Builder
-
-**Answer: B** — Factory pattern creates the right converter based on the requested output type at runtime.
+<Quiz
+  question="Your app needs exactly one database connection pool shared across all services. Which pattern?"
+  options={[
+    { label: "Factory  B) Builder  C) Singleton" },
+    { label: "Singleton  B) Factory  C) Builder" },
+  ]}
+  explanation="Factory pattern creates the right converter based on the requested output type at runtime."
+/>
 
 ---
 

@@ -2,7 +2,9 @@
 
 The **Circuit Breaker** pattern prevents an application from repeatedly trying to execute an operation that's likely to fail. Like an electrical circuit breaker that trips to prevent damage, it stops cascading failures in distributed systems.
 
-> **Real-world analogy:** When a fuse blows in your house, it **cuts power** to prevent an electrical fire. You don't keep flipping the switch. Instead, you wait, fix the problem, and then reset. A circuit breaker in software does the same — it stops calling a failing service, waits, then cautiously retries.
+<Callout type="tip" title="Real-World Analogy">
+  When a fuse blows in your house, it **cuts power** to prevent an electrical fire. You don't keep flipping the switch. Instead, you wait, fix the problem, and then reset. A circuit breaker in software does the same — it stops calling a failing service, waits, then cautiously retries.
+</Callout>
 
 ---
 
@@ -39,6 +41,15 @@ The **Circuit Breaker** pattern prevents an application from repeatedly trying t
 | OPEN | HALF-OPEN | Timeout period expires |
 | HALF-OPEN | CLOSED | Test requests succeed |
 | HALF-OPEN | OPEN | Test requests fail |
+
+<FlowDiagram
+  title="Circuit Breaker State Machine"
+  nodes={[
+    { id: "closed", label: "CLOSED", description: "Normal — requests flow through", color: "border-emerald-500/30 bg-emerald-500/5" },
+    { id: "open", label: "OPEN", description: "Tripped — fast fail all requests", color: "border-rose-500/30 bg-rose-500/5" },
+    { id: "half", label: "HALF-OPEN", description: "Testing — limited test requests", color: "border-amber-500/30 bg-amber-500/5" },
+  ]}
+/>
 
 ---
 

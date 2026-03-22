@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+@plugin "@tailwindcss/typography";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -126,5 +127,130 @@
   }
   html {
     @apply font-sans;
+    scroll-behavior: smooth;
   }
+}
+
+/* ═══════════════════════════════════════════════
+   MDX Prose Styling
+   ═══════════════════════════════════════════════ */
+
+.mdx-content {
+  @apply text-foreground leading-relaxed;
+}
+
+/* Headings */
+.mdx-content h1 {
+  @apply text-3xl font-bold mt-10 mb-4 text-foreground;
+}
+.mdx-content h2 {
+  @apply text-2xl font-bold mt-12 mb-4 pb-2 border-b border-border text-foreground scroll-mt-20;
+}
+.mdx-content h3 {
+  @apply text-xl font-semibold mt-8 mb-3 text-foreground scroll-mt-20;
+}
+.mdx-content h4 {
+  @apply text-lg font-semibold mt-6 mb-2 text-foreground;
+}
+
+/* Paragraphs & text */
+.mdx-content p {
+  @apply my-4 leading-7 text-foreground/90;
+}
+.mdx-content strong {
+  @apply font-semibold text-foreground;
+}
+
+/* Links */
+.mdx-content a {
+  @apply text-primary underline underline-offset-4 decoration-primary/40 hover:decoration-primary transition-colors;
+}
+
+/* Lists */
+.mdx-content ul {
+  @apply my-4 ml-6 space-y-2 list-disc;
+}
+.mdx-content ol {
+  @apply my-4 ml-6 space-y-2 list-decimal;
+}
+.mdx-content li {
+  @apply leading-7 text-foreground/90;
+}
+.mdx-content li::marker {
+  @apply text-primary/60;
+}
+
+/* Blockquotes */
+.mdx-content blockquote {
+  @apply my-6 border-l-4 border-primary/50 bg-primary/5 py-3 px-5 rounded-r-lg text-foreground/80 italic;
+}
+.mdx-content blockquote p {
+  @apply my-1;
+}
+
+/* Horizontal Rules */
+.mdx-content hr {
+  @apply my-8 border-border;
+}
+
+/* Inline Code */
+.mdx-content code:not(pre code) {
+  @apply text-sm bg-muted px-1.5 py-0.5 rounded font-mono text-primary;
+}
+
+/* Code blocks */
+.mdx-content pre {
+  @apply my-6 rounded-lg border border-border bg-card overflow-x-auto p-4 text-sm;
+}
+
+/* Tables */
+.mdx-content table {
+  @apply my-6 w-full text-sm border-collapse overflow-hidden rounded-lg border border-border;
+}
+.mdx-content thead {
+  @apply bg-muted/70;
+}
+.mdx-content thead th {
+  @apply px-4 py-3 text-left font-semibold text-foreground border-b-2 border-border;
+}
+.mdx-content tbody tr {
+  @apply border-b border-border transition-colors hover:bg-muted/30;
+}
+.mdx-content tbody tr:last-child {
+  @apply border-b-0;
+}
+.mdx-content tbody td {
+  @apply px-4 py-3 text-foreground/80;
+}
+
+/* Images */
+.mdx-content img {
+  @apply my-6 rounded-lg border border-border shadow-md;
+}
+
+/* Smooth animations for interactive elements */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.5s ease-out forwards;
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, transparent 0%, oklch(0.8 0.05 250 / 0.1) 50%, transparent 100%);
+  background-size: 200% 100%;
+  animation: shimmer 3s ease-in-out infinite;
 }

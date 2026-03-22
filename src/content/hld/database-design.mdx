@@ -2,7 +2,9 @@
 
 **Database Design** is the process of choosing the right type of database and structuring your data for optimal storage, retrieval, and scalability. The two main families are **SQL** (relational) and **NoSQL** (non-relational).
 
-> **Real-world analogy:** Think of **SQL** as a **spreadsheet** with strict rows and columns — every entry must follow the same format. **NoSQL** is like a **filing cabinet** where each folder can contain different types of documents — some have photos, some have contracts, and that's perfectly fine.
+<Callout type="tip" title="Real-World Analogy">
+  Think of **SQL** as a **spreadsheet** with strict rows and columns — every entry must follow the same format. **NoSQL** is like a **filing cabinet** where each folder can contain different types of documents — some have photos, some have contracts, and that's perfectly fine.
+</Callout>
 
 ---
 
@@ -176,20 +178,17 @@ public:
 
 ## 📝 Quick Quiz
 
-**Q1: You're building a social network where users have profiles with very different fields (some have bios, some have portfolios, some have linked accounts). Which database type fits better?**
-
-A) SQL — because you need relationships between users
-B) NoSQL (Document) — because each profile has a different structure
-
-**Answer: B** — Document databases like MongoDB handle flexible schemas naturally. Each user document can have different fields.
-
-**Q2: You're building a banking system that transfers money between accounts. Which database property is most critical?**
-
-A) Horizontal scalability
-B) ACID transactions
-C) Flexible schema
-
-**Answer: B** — Banking requires ACID (especially Atomicity) to ensure money isn't lost during transfers.
+<Quiz
+  question="You're building a social network where users have profiles with very different fields (some have bios, some have portfolios, some have linked accounts). Which database type fits better?"
+  options={[
+    { label: "SQL — because you need relationships between users" },
+    { label: "NoSQL (Document) — because each profile has a different structure", correct: true },
+    { label: "Horizontal scalability" },
+    { label: "ACID transactions", correct: true },
+    { label: "Flexible schema" },
+  ]}
+  explanation="Banking requires ACID (especially Atomicity) to ensure money isn't lost during transfers."
+/>
 
 ---
 

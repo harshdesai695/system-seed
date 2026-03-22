@@ -2,7 +2,9 @@
 
 **Structural Design Patterns** deal with how classes and objects are **composed** to form larger structures. They help ensure that when parts of a system change, the entire structure doesn't need to change.
 
-> **Real-world analogy:** Think of **LEGO bricks**. Each brick has a simple interface (the studs and holes), but you can combine them to create anything from a small house to a massive castle. Structural patterns are the rules for how to connect bricks together effectively.
+<Callout type="tip" title="Real-World Analogy">
+  Think of **LEGO bricks**. Each brick has a simple interface (the studs and holes), but you can combine them to create anything from a small house to a massive castle. Structural patterns are the rules for how to connect bricks together effectively.
+</Callout>
 
 ---
 
@@ -397,17 +399,14 @@ public:
 
 ## 📝 Quick Quiz
 
-**Q1: You need to integrate a new payment system that has a completely different API than what your code expects. Which pattern?**
-
-A) Decorator  B) Adapter  C) Facade
-
-**Answer: B** — Adapter converts the new payment API into the interface your code already uses.
-
-**Q2: You want to add logging, authentication, and rate limiting to an HTTP handler without modifying the handler itself. Which pattern?**
-
-A) Adapter  B) Facade  C) Decorator
-
-**Answer: C** — Decorator wraps the handler with each concern as a layer: `RateLimiter(Auth(Logger(handler)))`.
+<Quiz
+  question="You need to integrate a new payment system that has a completely different API than what your code expects. Which pattern?"
+  options={[
+    { label: "Decorator  B) Adapter  C) Facade" },
+    { label: "Adapter  B) Facade  C) Decorator" },
+  ]}
+  explanation="Decorator wraps the handler with each concern as a layer: `RateLimiter(Auth(Logger(handler)))`."
+/>
 
 ---
 

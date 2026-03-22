@@ -2,7 +2,9 @@
 
 **Database Replication** is the process of keeping copies of the same data on multiple database servers. When one server gets the data, it's automatically copied to the others.
 
-> **Real-world analogy:** Imagine a teacher writing notes on a whiteboard. Three students (replicas) each copy the notes into their own notebooks. If one student is absent, the other two still have the notes. If many students need to read the notes, they can read from any of the three notebooks instead of crowding around the whiteboard.
+<Callout type="tip" title="Real-World Analogy">
+  Imagine a teacher writing notes on a whiteboard. Three students (replicas) each copy the notes into their own notebooks. If one student is absent, the other two still have the notes. If many students need to read the notes, they can read from any of the three notebooks instead of crowding around the whiteboard.
+</Callout>
 
 ---
 
@@ -194,19 +196,16 @@ public:
 
 ## 📝 Quick Quiz
 
-**Q1: Your app has a 95% read, 5% write ratio. Which replication strategy helps most?**
-
-A) Master-Master with synchronous replication
-B) Master-Slave with multiple read replicas
-
-**Answer: B** — With 95% reads, adding read replicas distributes the read load while the master handles the small write load.
-
-**Q2: With asynchronous replication, a user updates their profile and immediately refreshes the page. They see the old data. Why?**
-
-A) The database lost the data
-B) The read hit a replica that hasn't received the update yet (replication lag)
-
-**Answer: B** — Asynchronous replication means replicas might be slightly behind. Solutions: read-after-write consistency (read your own writes from master) or synchronous replication.
+<Quiz
+  question="Your app has a 95% read, 5% write ratio. Which replication strategy helps most?"
+  options={[
+    { label: "Master-Master with synchronous replication" },
+    { label: "Master-Slave with multiple read replicas", correct: true },
+    { label: "The database lost the data" },
+    { label: "The read hit a replica that hasn't received the update yet (replication lag)", correct: true },
+  ]}
+  explanation="Asynchronous replication means replicas might be slightly behind. Solutions: read-after-write consistency (read your own writes from master) or synchronous replication."
+/>
 
 ---
 

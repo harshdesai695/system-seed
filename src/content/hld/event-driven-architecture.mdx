@@ -2,7 +2,9 @@
 
 **Event-Driven Architecture (EDA)** is a design pattern where the flow of the program is determined by **events** — significant changes in state. Components produce, detect, and react to events asynchronously, enabling loose coupling and high scalability.
 
-> **Real-world analogy:** Think of a **newspaper subscription**. The publisher doesn't call every subscriber when news breaks. Instead, they publish the newspaper (emit an event), and all subscribers receive it independently. Subscribers can join or leave without the publisher knowing.
+<Callout type="tip" title="Real-World Analogy">
+  Think of a **newspaper subscription**. The publisher doesn't call every subscriber when news breaks. Instead, they publish the newspaper (emit an event), and all subscribers receive it independently. Subscribers can join or leave without the publisher knowing.
+</Callout>
 
 ---
 
@@ -13,6 +15,18 @@
 ---
 
 ## 🔍 Core Patterns
+
+<ArchitectureDiagram
+  title="Event-Driven Architecture Components"
+  nodes={[
+    { label: "Producer", type: "client" },
+    { label: "Event Bus", type: "queue" },
+    { label: "Consumer A", type: "service" },
+    { label: "Consumer B", type: "service" },
+    { label: "Consumer C", type: "service" },
+    { label: "Event Store", type: "database" },
+  ]}
+/>
 
 ### 1. Event Notification
 Producer emits an event; consumers react. No response expected.

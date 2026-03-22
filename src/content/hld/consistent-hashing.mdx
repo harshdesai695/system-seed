@@ -2,7 +2,9 @@
 
 **Consistent Hashing** is a technique used to distribute data across multiple servers in a way that minimizes redistribution when servers are added or removed.
 
-> **Real-world analogy:** Imagine a **circular clock** where each hour mark is a server. To store an item, you find its "time" on the clock and walk clockwise until you reach the next server — that's where it's stored. If you add a new server at 3 o'clock, only the items between 2 and 3 need to move. The rest stay put. With regular hashing, adding a server would shuffle *everything*.
+<Callout type="tip" title="Real-World Analogy">
+  Imagine a **circular clock** where each hour mark is a server. To store an item, you find its "time" on the clock and walk clockwise until you reach the next server — that's where it's stored. If you add a new server at 3 o'clock, only the items between 2 and 3 need to move. The rest stay put. With regular hashing, adding a server would shuffle *everything*.
+</Callout>
 
 ---
 

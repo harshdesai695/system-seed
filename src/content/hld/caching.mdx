@@ -2,7 +2,9 @@
 
 **Caching** is the technique of storing copies of frequently accessed data in a fast-access storage layer so that future requests can be served faster.
 
-> **Real-world analogy:** Imagine you're studying for an exam. Instead of walking to the **library** (database) every time you need to look something up, you keep your **most-used textbooks on your desk** (cache). Your desk is small, so you can only keep a few books — but accessing them is instant compared to walking to the library.
+<Callout type="tip" title="Real-World Analogy">
+  Imagine you're studying for an exam. Instead of walking to the **library** (database) every time you need to look something up, you keep your **most-used textbooks on your desk** (cache). Your desk is small, so you can only keep a few books — but accessing them is instant compared to walking to the library.
+</Callout>
 
 ---
 
@@ -23,6 +25,16 @@ When a request comes in:
 1. **Check the cache** — Is the data already stored?
 2. **Cache Hit** ✅ — Data found in cache → return immediately (fast!)
 3. **Cache Miss** ❌ — Data NOT in cache → fetch from database → store in cache → return to user
+
+<StepDiagram
+  title="🔄 Cache Hit vs Cache Miss Flow"
+  steps={[
+    { title: "Client Request", description: "User asks for data", icon: "globe" },
+    { title: "Check Cache", description: "Is data cached?", icon: "cpu" },
+    { title: "Cache / DB", description: "Hit → cache, Miss → DB", icon: "database" },
+    { title: "Response", description: "Return data to user", icon: "server" },
+  ]}
+/>
 
 ### Caching Layers
 
@@ -308,21 +320,18 @@ When the cache is full, which data do we remove?
 
 ## 📝 Quick Quiz
 
-**Q1: Your e-commerce site shows product prices that update every hour. Users complain the site is slow. What caching strategy makes sense?**
-
-A) No caching — prices must always be exact
-B) Cache-aside with a 30-minute TTL
-C) Write-through with no TTL
-
-**Answer: B** — Since prices update hourly, a 30-minute TTL gives you speed benefits while ensuring data doesn't get too stale.
-
-**Q2: What happens during a "cache stampede"?**
-
-A) The cache runs out of memory
-B) Multiple requests hit the database simultaneously when a popular cache entry expires
-C) The cache server crashes
-
-**Answer: B** — When a popular cache entry expires, hundreds of simultaneous requests may all experience a cache miss and all query the database at once, potentially overwhelming it. Solutions include cache warming, staggered TTLs, or using a lock to allow only one request to rebuild the cache.
+<Quiz
+  question="Your e-commerce site shows product prices that update every hour. Users complain the site is slow. What caching strategy makes sense?"
+  options={[
+    { label: "No caching — prices must always be exact" },
+    { label: "Cache-aside with a 30-minute TTL", correct: true },
+    { label: "Write-through with no TTL" },
+    { label: "The cache runs out of memory" },
+    { label: "Multiple requests hit the database simultaneously when a popular cache entry expires", correct: true },
+    { label: "The cache server crashes" },
+  ]}
+  explanation="When a popular cache entry expires, hundreds of simultaneous requests may all experience a cache miss and all query the database at once, potentially overwhelming it. Solutions include cache warming, staggered TTLs, or using a lock to allow only one request to rebuild the cache."
+/>
 
 ---
 

@@ -2,7 +2,9 @@
 
 **CDN (Content Delivery Network)** is a geographically distributed network of servers that delivers web content to users from the server closest to them, reducing latency.
 
-> **Real-world analogy:** Imagine a global bookstore chain. Instead of shipping every book from a central warehouse in New York, they stock popular titles at **local stores worldwide**. When you want a bestseller in Tokyo, you get it from the Tokyo store instantly instead of waiting for a shipment from New York.
+<Callout type="tip" title="Real-World Analogy">
+  Imagine a global bookstore chain. Instead of shipping every book from a central warehouse in New York, they stock popular titles at **local stores worldwide**. When you want a bestseller in Tokyo, you get it from the Tokyo store instantly instead of waiting for a shipment from New York.
+</Callout>
 
 ---
 
@@ -19,6 +21,16 @@
 3. **Edge server** checks if it has the content cached
 4. **Cache hit**: Content returned immediately (fast!)
 5. **Cache miss**: Edge server fetches from the **origin server**, caches it, then returns it
+
+<StepDiagram
+  title="CDN Content Delivery Flow"
+  steps={[
+    { title: "User Request", description: "Requests image/video/CSS", icon: "globe" },
+    { title: "DNS Lookup", description: "Resolves to nearest edge", icon: "cpu" },
+    { title: "Edge Server", description: "Checks local cache", icon: "server" },
+    { title: "Origin (if miss)", description: "Fetches & caches content", icon: "database" },
+  ]}
+/>
 
 ### CDN Architecture
 
