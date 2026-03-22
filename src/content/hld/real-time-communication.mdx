@@ -1,0 +1,241 @@
+# 🎯 What is Real-Time Communication?
+
+**Real-Time Communication (RTC)** enables instant, bidirectional data exchange between clients and servers (or peer-to-peer) with minimal latency. It powers chat apps, live notifications, collaborative editing, video calls, and multiplayer games.
+
+> **Real-world analogy:** **Phone calls vs letters.** HTTP is like sending a letter — you write, mail it, and wait for a reply. WebSockets are like a phone call — both sides can talk at any time, and the line stays open. Real-time communication keeps the line open.
+
+---
+
+## 🌍 Real-World Example
+
+**Slack** uses WebSockets for real-time messaging. When you type a message, it's sent instantly over a persistent WebSocket connection to Slack's servers, which broadcast it to all channel members. Typing indicators, reactions, and presence updates all flow through the same connection.
+
+---
+
+## 🔍 Communication Protocols Compared
+
+| Protocol | Direction | Connection | Latency | Use Case |
+|----------|-----------|-----------|---------|----------|
+| **HTTP Polling** | Client → Server | New request each time | High (1-10s) | Legacy systems |
+| **Long Polling** | Client → Server | Held open until data | Medium (0.5-2s) | Chat fallback |
+| **SSE** | Server → Client | Persistent, one-way | Low (~100ms) | Live feeds, notifications |
+| **WebSocket** | Bidirectional | Persistent, full-duplex | Very Low (~50ms) | Chat, gaming, collaboration |
+| **WebRTC** | Peer-to-Peer | Direct connection | Ultra Low (~10ms) | Video/audio calls |
+
+---
+
+## 🔍 How WebSockets Work
+
+1. **Handshake** — Client sends HTTP upgrade request
+2. **Connection** — Server accepts, upgrades to WebSocket protocol
+3. **Communication** — Both sides send/receive frames anytime
+4. **Heartbeat** — Ping/pong frames keep connection alive
+5. **Close** — Either side can close the connection
+
+---
+
+## 💻 Code Example: Real-Time Chat System
+
+<CodeBlock
+  title="WebSocket Chat Server"
+  python={`import asyncio
+import websockets
+from typing import Set
+
+class ChatServer:
+    def __init__(self):
+        self.clients: Set[websockets.WebSocketServerProtocol] = set()
+        self.rooms: dict[str, Set] = {}
+
+    async def register(self, ws, room: str):
+        if room not in self.rooms:
+            self.rooms[room] = set()
+        self.rooms[room].add(ws)
+        self.clients.add(ws)
+
+    async def unregister(self, ws, room: str):
+        self.rooms.get(room, set()).discard(ws)
+        self.clients.discard(ws)
+
+    async def broadcast(self, room: str, message: str, sender):
+        targets = self.rooms.get(room, set())
+        tasks = [
+            client.send(message)
+            for client in targets
+            if client != sender and client.open
+        ]
+        if tasks:
+            await asyncio.gather(*tasks)
+
+    async def handler(self, ws, path):
+        room = path.strip("/") or "general"
+        await self.register(ws, room)
+        try:
+            async for message in ws:
+                await self.broadcast(room, message, ws)
+        finally:
+            await self.unregister(ws, room)
+
+server = ChatServer()
+start = websockets.serve(server.handler, "localhost", 8765)
+asyncio.get_event_loop().run_until_complete(start)
+asyncio.get_event_loop().run_forever()`}
+  java={`import javax.websocket.*;
+import javax.websocket.server.ServerEndpoint;
+import java.util.*;
+import java.util.concurrent.*;
+
+@ServerEndpoint("/chat/{room}")
+public class ChatServer {
+    private static final Map<String, Set<Session>> rooms
+        = new ConcurrentHashMap<>();
+
+    @OnOpen
+    public void onOpen(Session session,
+            @javax.websocket.server.PathParam("room") String room) {
+        rooms.computeIfAbsent(room,
+            k -> ConcurrentHashMap.newKeySet()).add(session);
+        session.getUserProperties().put("room", room);
+    }
+
+    @OnMessage
+    public void onMessage(String message, Session sender) {
+        String room = (String) sender.getUserProperties().get("room");
+        Set<Session> clients = rooms.getOrDefault(room, Set.of());
+        for (Session client : clients) {
+            if (client.isOpen() && !client.equals(sender)) {
+                client.getAsyncRemote().sendText(message);
+            }
+        }
+    }
+
+    @OnClose
+    public void onClose(Session session) {
+        String room = (String) session.getUserProperties().get("room");
+        rooms.getOrDefault(room, Set.of()).remove(session);
+    }
+}`}
+  go={`type ChatServer struct {
+    rooms map[string]map[*websocket.Conn]bool
+    mu    sync.RWMutex
+}
+
+func NewChatServer() *ChatServer {
+    return &ChatServer{
+        rooms: make(map[string]map[*websocket.Conn]bool),
+    }
+}
+
+var upgrader = websocket.Upgrader{
+    CheckOrigin: func(r *http.Request) bool { return true },
+}
+
+func (cs *ChatServer) HandleConn(w http.ResponseWriter,
+        r *http.Request) {
+    room := r.URL.Query().Get("room")
+    conn, err := upgrader.Upgrade(w, r, nil)
+    if err != nil {
+        return
+    }
+    defer conn.Close()
+
+    cs.mu.Lock()
+    if cs.rooms[room] == nil {
+        cs.rooms[room] = make(map[*websocket.Conn]bool)
+    }
+    cs.rooms[room][conn] = true
+    cs.mu.Unlock()
+
+    defer func() {
+        cs.mu.Lock()
+        delete(cs.rooms[room], conn)
+        cs.mu.Unlock()
+    }()
+
+    for {
+        _, msg, err := conn.ReadMessage()
+        if err != nil {
+            break
+        }
+        cs.broadcast(room, msg, conn)
+    }
+}
+
+func (cs *ChatServer) broadcast(room string, msg []byte,
+        sender *websocket.Conn) {
+    cs.mu.RLock()
+    defer cs.mu.RUnlock()
+    for client := range cs.rooms[room] {
+        if client != sender {
+            client.WriteMessage(websocket.TextMessage, msg)
+        }
+    }
+}`}
+  cpp={`// Using uWebSockets library
+#include <uWebSockets/App.h>
+
+struct PerSocketData {
+    std::string room;
+};
+
+int main() {
+    auto app = uWS::App();
+
+    app.ws<PerSocketData>("/chat/:room", {
+        .open = [](auto* ws) {
+            auto room = ws->getUserData()->room;
+            ws->subscribe(room);
+            std::cout << "Client joined room: " << room << std::endl;
+        },
+        .message = [](auto* ws, std::string_view msg, auto opCode) {
+            auto room = ws->getUserData()->room;
+            ws->publish(room, msg, opCode); // broadcast
+        },
+        .close = [](auto* ws, int code, std::string_view msg) {
+            std::cout << "Client disconnected" << std::endl;
+        }
+    });
+
+    app.listen(8765, [](auto* token) {
+        if (token) std::cout << "Listening on port 8765" << std::endl;
+    });
+
+    app.run();
+}`}
+/>
+
+---
+
+## ⚖️ Pros & Cons
+
+| Pros ✅ | Cons ❌ |
+|---------|---------|
+| Instant data delivery | Persistent connections consume resources |
+| Bidirectional communication | Harder to scale (stateful connections) |
+| Reduced overhead vs polling | Needs fallback for unreliable networks |
+| Native browser support | Load balancing is more complex |
+
+---
+
+## 🧩 When to Use
+
+- **Use when:** Chat, live notifications, collaborative editing, real-time dashboards, multiplayer games
+- **Avoid when:** Infrequent updates, simple form submissions, SEO-critical content
+
+---
+
+## 🔗 Related Concepts
+
+- [Message Queues](/concepts/hld/message-queues) — Backend pub/sub for event distribution
+- [Load Balancing](/concepts/hld/load-balancing) — Sticky sessions for WebSocket connections
+- [Event-Driven Architecture](/concepts/hld/event-driven-architecture) — Events drive real-time updates
+
+---
+
+## 📝 Quick Quiz
+
+**Q1: Your chat app needs to show "User is typing..." indicators. Which protocol is most appropriate?**
+
+A) HTTP polling every 5 seconds  B) WebSocket with typing events
+
+**Answer: B** — Typing indicators need instant, bidirectional communication. WebSockets can send typing events in real-time without the overhead and latency of polling.

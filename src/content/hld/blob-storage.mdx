@@ -1,0 +1,254 @@
+# 🎯 What is Blob Storage?
+
+**Blob (Binary Large Object) Storage** is a service for storing massive amounts of unstructured data — images, videos, documents, backups, logs — as binary objects. Unlike databases, blob storage is optimized for storing and retrieving large files cheaply at scale.
+
+> **Real-world analogy:** Blob storage is like a **self-storage warehouse**. You rent a unit (bucket/container), put boxes (blobs) in it with labels (keys), and retrieve them later. You don't care how the warehouse organizes things internally — you just need your stuff back when you ask for it.
+
+---
+
+## 🌍 Real-World Example
+
+**Netflix** stores all its video content in **Amazon S3** (blob storage). Each movie is encoded in dozens of formats/resolutions and stored as blobs. When you press play, the CDN fetches the right blob from S3 based on your device and bandwidth.
+
+---
+
+## 🔍 How Blob Storage Works
+
+### Architecture Layers
+
+1. **Client API** — PUT/GET/DELETE objects via HTTP
+2. **Metadata Service** — Maps keys to storage locations (uses a database)
+3. **Storage Nodes** — Actual machines with disks storing the binary data
+4. **Replication** — Each blob is replicated across multiple nodes/data centers
+
+### Key Operations
+
+| Operation | Description |
+|-----------|-------------|
+| **PUT** | Upload a blob with a unique key |
+| **GET** | Retrieve a blob by its key |
+| **DELETE** | Remove a blob |
+| **LIST** | List all blobs in a bucket |
+| **HEAD** | Get metadata without downloading |
+
+---
+
+## 📊 Blob Storage Services Comparison
+
+| Feature | AWS S3 | Azure Blob | Google Cloud Storage |
+|---------|--------|-----------|---------------------|
+| **Durability** | 99.999999999% (11 9's) | 99.999999999% | 99.999999999% |
+| **Storage Tiers** | Standard, IA, Glacier | Hot, Cool, Archive | Standard, Nearline, Coldline |
+| **Max Object Size** | 5 TB | 4.75 TB | 5 TB |
+| **Access Control** | IAM + Bucket Policies | RBAC + SAS tokens | IAM + ACLs |
+
+---
+
+## 💻 Code Example: Blob Storage System
+
+<CodeBlock
+  title="Simple Blob Storage"
+  python={`import hashlib
+import os
+from typing import Optional
+
+class BlobStorage:
+    """Simple file-system backed blob storage."""
+
+    def __init__(self, base_dir: str = "./blob-store"):
+        self.base_dir = base_dir
+        self.metadata: dict = {}  # key → {path, size, hash}
+        os.makedirs(base_dir, exist_ok=True)
+
+    def _content_hash(self, data: bytes) -> str:
+        return hashlib.sha256(data).hexdigest()
+
+    def put(self, key: str, data: bytes) -> dict:
+        content_hash = self._content_hash(data)
+        # Use hash-based directory structure for distribution
+        dir_path = os.path.join(
+            self.base_dir, content_hash[:2], content_hash[2:4]
+        )
+        os.makedirs(dir_path, exist_ok=True)
+        file_path = os.path.join(dir_path, content_hash)
+
+        with open(file_path, "wb") as f:
+            f.write(data)
+
+        self.metadata[key] = {
+            "path": file_path,
+            "size": len(data),
+            "hash": content_hash,
+        }
+        return self.metadata[key]
+
+    def get(self, key: str) -> Optional[bytes]:
+        meta = self.metadata.get(key)
+        if not meta:
+            return None
+        with open(meta["path"], "rb") as f:
+            return f.read()
+
+    def delete(self, key: str) -> bool:
+        meta = self.metadata.pop(key, None)
+        if meta and os.path.exists(meta["path"]):
+            os.remove(meta["path"])
+            return True
+        return False
+
+# Usage
+store = BlobStorage()
+store.put("avatar/user123.png", b"\\x89PNG...image data...")
+data = store.get("avatar/user123.png")`}
+  java={`import java.io.*;
+import java.security.*;
+import java.util.concurrent.*;
+
+public class BlobStorage {
+    private final String baseDir;
+    private final ConcurrentHashMap<String, BlobMeta> metadata
+        = new ConcurrentHashMap<>();
+
+    record BlobMeta(String path, long size, String hash) {}
+
+    public BlobStorage(String baseDir) {
+        this.baseDir = baseDir;
+        new File(baseDir).mkdirs();
+    }
+
+    public BlobMeta put(String key, byte[] data) throws Exception {
+        String hash = sha256(data);
+        String dirPath = baseDir + "/" + hash.substring(0, 2);
+        new File(dirPath).mkdirs();
+        String filePath = dirPath + "/" + hash;
+
+        try (FileOutputStream fos = new FileOutputStream(filePath)) {
+            fos.write(data);
+        }
+
+        BlobMeta meta = new BlobMeta(filePath, data.length, hash);
+        metadata.put(key, meta);
+        return meta;
+    }
+
+    public byte[] get(String key) throws IOException {
+        BlobMeta meta = metadata.get(key);
+        if (meta == null) return null;
+        return java.nio.file.Files.readAllBytes(
+            java.nio.file.Path.of(meta.path()));
+    }
+
+    private String sha256(byte[] data) throws Exception {
+        MessageDigest md = MessageDigest.getInstance("SHA-256");
+        byte[] hash = md.digest(data);
+        StringBuilder sb = new StringBuilder();
+        for (byte b : hash) sb.append(String.format("%02x", b));
+        return sb.toString();
+    }
+}`}
+  go={`type BlobStorage struct {
+    baseDir  string
+    metadata sync.Map // key → BlobMeta
+}
+
+type BlobMeta struct {
+    Path string
+    Size int64
+    Hash string
+}
+
+func NewBlobStorage(baseDir string) *BlobStorage {
+    os.MkdirAll(baseDir, 0755)
+    return &BlobStorage{baseDir: baseDir}
+}
+
+func (bs *BlobStorage) Put(key string, data []byte) (*BlobMeta, error) {
+    hash := sha256Hash(data)
+    dir := filepath.Join(bs.baseDir, hash[:2])
+    os.MkdirAll(dir, 0755)
+    path := filepath.Join(dir, hash)
+
+    if err := os.WriteFile(path, data, 0644); err != nil {
+        return nil, err
+    }
+
+    meta := &BlobMeta{Path: path, Size: int64(len(data)), Hash: hash}
+    bs.metadata.Store(key, meta)
+    return meta, nil
+}
+
+func (bs *BlobStorage) Get(key string) ([]byte, error) {
+    val, ok := bs.metadata.Load(key)
+    if !ok {
+        return nil, fmt.Errorf("key not found: %s", key)
+    }
+    return os.ReadFile(val.(*BlobMeta).Path)
+}`}
+  cpp={`class BlobStorage {
+    std::string baseDir_;
+    std::unordered_map<std::string, BlobMeta> metadata_;
+    std::mutex mu_;
+
+    struct BlobMeta {
+        std::string path;
+        size_t size;
+        std::string hash;
+    };
+
+public:
+    BlobStorage(const std::string& dir) : baseDir_(dir) {
+        std::filesystem::create_directories(dir);
+    }
+
+    void put(const std::string& key,
+             const std::vector<uint8_t>& data) {
+        auto hash = computeSHA256(data);
+        auto dir = baseDir_ + "/" + hash.substr(0, 2);
+        std::filesystem::create_directories(dir);
+        auto path = dir + "/" + hash;
+
+        std::ofstream out(path, std::ios::binary);
+        out.write(reinterpret_cast<const char*>(data.data()),
+                  data.size());
+
+        std::lock_guard<std::mutex> lock(mu_);
+        metadata_[key] = {path, data.size(), hash};
+    }
+};`}
+/>
+
+---
+
+## ⚖️ Pros & Cons
+
+| Pros ✅ | Cons ❌ |
+|---------|---------|
+| Unlimited scalability | No query/search capabilities |
+| Very cheap for large files | Higher latency than databases |
+| Built-in durability (11 9's) | Eventual consistency in some configs |
+| Simple key-value API | Not suited for small structured data |
+
+---
+
+## 🧩 When to Use
+
+- **Use when:** Storing images, videos, backups, logs, static assets, data lake storage
+- **Avoid when:** You need fast queries, transactions, or structured data relationships
+
+---
+
+## 🔗 Related Concepts
+
+- [CDN](/concepts/hld/cdn) — CDNs cache blobs at edge locations
+- [Database Design](/concepts/hld/database-design) — Store references to blobs, not the blobs themselves
+- [Checksum](/concepts/hld/checksum) — Verify blob integrity during transfer
+
+---
+
+## 📝 Quick Quiz
+
+**Q1: Your app stores user profile pictures. Should you store them in a PostgreSQL column or blob storage?**
+
+A) PostgreSQL BYTEA column  B) Blob storage (S3) with URL reference in DB
+
+**Answer: B** — Blob storage is purpose-built for binary files. Store the blob in S3 and keep just the URL/key in the database. This keeps your DB small and fast.

@@ -1,0 +1,147 @@
+# 🎯 What is DNS?
+
+**DNS (Domain Name System)** is the internet's phone book. It translates human-readable domain names (like `google.com`) into IP addresses (like `142.250.80.46`) that computers use to identify each other.
+
+> **Real-world analogy:** You don't memorize your friends' phone numbers — you save them under names in your **contacts app**. When you tap "Mom," your phone looks up her number and calls it. DNS works the same way: you type `google.com`, DNS looks up `142.250.80.46`, and your browser connects.
+
+---
+
+## 🌍 Real-World Example
+
+Every time you visit a website, DNS is at work. **Cloudflare's 1.1.1.1** and **Google's 8.8.8.8** are public DNS resolvers that handle billions of DNS queries daily, translating domain names to IP addresses for users worldwide.
+
+---
+
+## 🔍 How DNS Resolution Works (Step by Step)
+
+1. You type `www.example.com` in your browser
+2. **Browser cache** — Already know the IP? Use it! ✅
+3. **OS cache** — Check the local operating system cache
+4. **Recursive resolver** — Your ISP's DNS server (or 8.8.8.8)
+5. **Root nameserver** — "I don't know example.com, but ask the `.com` server"
+6. **TLD nameserver** — ".com server says: example.com is managed by `ns1.example.com`"
+7. **Authoritative nameserver** — "example.com → 93.184.216.34" ✅
+8. IP returned to browser → connection established
+
+---
+
+## 📊 DNS Record Types
+
+| Record | Purpose | Example |
+|--------|---------|---------|
+| **A** | Maps domain to IPv4 | `example.com → 93.184.216.34` |
+| **AAAA** | Maps domain to IPv6 | `example.com → 2606:2800:220:1::248` |
+| **CNAME** | Alias one domain to another | `www.example.com → example.com` |
+| **MX** | Mail server routing | `example.com → mail.example.com` |
+| **NS** | Nameserver delegation | `example.com → ns1.example.com` |
+| **TXT** | Arbitrary text (verification) | SPF, DKIM email validation |
+| **TTL** | Time to live (cache duration) | `300` (5 minutes) |
+
+---
+
+## 💻 Code Example: DNS Lookup
+
+<CodeBlock
+  title="DNS Lookup"
+  python={`import socket
+
+# Simple DNS lookup
+def dns_lookup(domain: str):
+    try:
+        ip = socket.gethostbyname(domain)
+        print(f"{domain} → {ip}")
+        return ip
+    except socket.gaierror:
+        print(f"DNS lookup failed for {domain}")
+        return None
+
+# Get all IPs (load balanced domains have multiple)
+def dns_lookup_all(domain: str):
+    try:
+        results = socket.getaddrinfo(domain, 80)
+        ips = set(r[4][0] for r in results)
+        for ip in ips:
+            print(f"{domain} → {ip}")
+        return list(ips)
+    except socket.gaierror:
+        return []
+
+dns_lookup("google.com")          # google.com → 142.250.80.46
+dns_lookup_all("netflix.com")     # Multiple IPs (CDN/LB)`}
+  java={`import java.net.InetAddress;
+
+public class DnsLookup {
+    public static void lookup(String domain) {
+        try {
+            // Single lookup
+            InetAddress addr = InetAddress.getByName(domain);
+            System.out.println(domain + " → " + addr.getHostAddress());
+
+            // All IPs (load-balanced domains)
+            InetAddress[] allAddrs = InetAddress.getAllByName(domain);
+            for (InetAddress a : allAddrs) {
+                System.out.println("  IP: " + a.getHostAddress());
+            }
+        } catch (Exception e) {
+            System.out.println("DNS lookup failed: " + e.getMessage());
+        }
+    }
+}`}
+  go={`func dnsLookup(domain string) {
+    ips, err := net.LookupHost(domain)
+    if err != nil {
+        fmt.Printf("DNS lookup failed: %v\\n", err)
+        return
+    }
+    for _, ip := range ips {
+        fmt.Printf("%s → %s\\n", domain, ip)
+    }
+}`}
+  cpp={`#include <netdb.h>
+#include <arpa/inet.h>
+
+void dnsLookup(const std::string& domain) {
+    struct hostent* host = gethostbyname(domain.c_str());
+    if (!host) {
+        std::cerr << "DNS lookup failed" << std::endl;
+        return;
+    }
+    for (int i = 0; host->h_addr_list[i]; i++) {
+        char ip[INET_ADDRSTRLEN];
+        inet_ntop(AF_INET, host->h_addr_list[i], ip, sizeof(ip));
+        std::cout << domain << " → " << ip << std::endl;
+    }
+}`}
+/>
+
+---
+
+## ⚖️ Pros & Cons
+
+| Pros ✅ | Cons ❌ |
+|---------|---------|
+| Human-readable addresses | DNS propagation delays |
+| Load distribution via multiple IPs | DNS spoofing/cache poisoning risks |
+| Caching reduces latency | Single point of failure without redundancy |
+
+---
+
+## 🔗 Related Concepts
+
+- [CDN](/concepts/hld/cdn) — DNS routes users to the nearest CDN edge
+- [Load Balancing](/concepts/hld/load-balancing) — DNS-based load balancing distributes traffic
+- [Proxy](/concepts/hld/proxy) — Reverse proxies sit behind DNS resolution
+
+---
+
+## 📝 Quick Quiz
+
+**Q1: You update your website's server IP. Users still see the old site for hours. Why?**
+
+A) The server didn't restart  B) DNS caches still hold the old IP (TTL hasn't expired)
+
+**Answer: B** — DNS records have a TTL (Time to Live). Until the cached record expires, resolvers return the old IP.
+
+---
+
+*Sources: Cloudflare DNS Learning Center, AWS Route 53 Documentation, RFC 1035*

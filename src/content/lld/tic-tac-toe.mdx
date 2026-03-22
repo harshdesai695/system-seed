@@ -1,0 +1,316 @@
+# 🎯 Tic-Tac-Toe Game Design
+
+Design an **Object-Oriented Tic-Tac-Toe game** that supports a configurable board size, multiple players, win detection, and extensible game rules.
+
+> **Real-world analogy:** The classic 3×3 grid game where two players alternate placing X and O marks, trying to get three in a row horizontally, vertically, or diagonally.
+
+---
+
+## 📋 Requirements
+
+### Functional
+- Support N×N board (default 3×3)
+- Two players alternate turns (X and O)
+- Detect win (row, column, diagonal) and draw
+- Input validation (occupied cell, out of bounds)
+- Display board state after each move
+
+---
+
+## 🔍 Class Design
+
+| Class | Responsibility |
+|-------|---------------|
+| `Game` | Orchestrates game loop and rules |
+| `Board` | Manages the grid and win detection |
+| `Player` | Represents a player with their symbol |
+| `Move` | Encapsulates a row/column placement |
+
+---
+
+## 💻 Code Example
+
+<CodeBlock
+  title="Tic-Tac-Toe"
+  python={`from dataclasses import dataclass
+from enum import Enum
+
+class Symbol(Enum):
+    X = "X"
+    O = "O"
+    EMPTY = "."
+
+@dataclass
+class Player:
+    name: str
+    symbol: Symbol
+
+@dataclass
+class Move:
+    row: int
+    col: int
+    player: Player
+
+class Board:
+    def __init__(self, size: int = 3):
+        self.size = size
+        self.grid = [[Symbol.EMPTY] * size for _ in range(size)]
+        self.moves_made = 0
+
+    def place(self, row: int, col: int, symbol: Symbol) -> bool:
+        if not (0 <= row < self.size and 0 <= col < self.size):
+            return False
+        if self.grid[row][col] != Symbol.EMPTY:
+            return False
+        self.grid[row][col] = symbol
+        self.moves_made += 1
+        return True
+
+    def check_winner(self, symbol: Symbol) -> bool:
+        n = self.size
+
+        # Check rows and columns
+        for i in range(n):
+            if all(self.grid[i][j] == symbol for j in range(n)):
+                return True
+            if all(self.grid[j][i] == symbol for j in range(n)):
+                return True
+
+        # Check diagonals
+        if all(self.grid[i][i] == symbol for i in range(n)):
+            return True
+        if all(self.grid[i][n-1-i] == symbol for i in range(n)):
+            return True
+
+        return False
+
+    def is_full(self) -> bool:
+        return self.moves_made >= self.size ** 2
+
+    def display(self):
+        for row in self.grid:
+            print(" | ".join(s.value for s in row))
+            print("-" * (self.size * 4 - 1))
+
+class TicTacToe:
+    def __init__(self, p1_name: str = "Player 1",
+                 p2_name: str = "Player 2", size: int = 3):
+        self.board = Board(size)
+        self.players = [
+            Player(p1_name, Symbol.X),
+            Player(p2_name, Symbol.O),
+        ]
+        self.current_turn = 0
+        self.winner: Player | None = None
+        self.game_over = False
+
+    @property
+    def current_player(self) -> Player:
+        return self.players[self.current_turn]
+
+    def make_move(self, row: int, col: int) -> str:
+        if self.game_over:
+            return "Game is already over!"
+
+        player = self.current_player
+        if not self.board.place(row, col, player.symbol):
+            return f"Invalid move ({row}, {col})"
+
+        if self.board.check_winner(player.symbol):
+            self.winner = player
+            self.game_over = True
+            return f"🎉 {player.name} ({player.symbol.value}) wins!"
+
+        if self.board.is_full():
+            self.game_over = True
+            return "🤝 It's a draw!"
+
+        self.current_turn = 1 - self.current_turn
+        return f"{self.current_player.name}'s turn"
+
+# Usage
+game = TicTacToe("Alice", "Bob")
+game.board.display()
+
+print(game.make_move(0, 0))  # Alice places X at (0,0)
+print(game.make_move(1, 1))  # Bob places O at (1,1)
+print(game.make_move(0, 1))  # Alice places X at (0,1)
+print(game.make_move(1, 0))  # Bob places O at (1,0)
+print(game.make_move(0, 2))  # Alice places X at (0,2) → Wins!
+
+game.board.display()`}
+  java={`public class TicTacToe {
+    private final Board board;
+    private final Player[] players;
+    private int currentTurn = 0;
+    private boolean gameOver = false;
+    private Player winner;
+
+    public TicTacToe(String p1, String p2, int size) {
+        board = new Board(size);
+        players = new Player[]{
+            new Player(p1, 'X'),
+            new Player(p2, 'O')
+        };
+    }
+
+    public String makeMove(int row, int col) {
+        if (gameOver) return "Game is already over!";
+        Player player = players[currentTurn];
+
+        if (!board.place(row, col, player.getSymbol()))
+            return "Invalid move";
+
+        if (board.checkWinner(player.getSymbol())) {
+            winner = player;
+            gameOver = true;
+            return player.getName() + " wins!";
+        }
+
+        if (board.isFull()) {
+            gameOver = true;
+            return "It's a draw!";
+        }
+
+        currentTurn = 1 - currentTurn;
+        return players[currentTurn].getName() + "'s turn";
+    }
+}
+
+class Board {
+    private final char[][] grid;
+    private final int size;
+    private int moves = 0;
+
+    Board(int size) {
+        this.size = size;
+        grid = new char[size][size];
+        for (char[] row : grid) Arrays.fill(row, '.');
+    }
+
+    boolean place(int r, int c, char symbol) {
+        if (r < 0 || r >= size || c < 0 || c >= size
+                || grid[r][c] != '.') return false;
+        grid[r][c] = symbol;
+        moves++;
+        return true;
+    }
+
+    boolean checkWinner(char symbol) {
+        for (int i = 0; i < size; i++) {
+            boolean row = true, col = true;
+            for (int j = 0; j < size; j++) {
+                if (grid[i][j] != symbol) row = false;
+                if (grid[j][i] != symbol) col = false;
+            }
+            if (row || col) return true;
+        }
+        boolean d1 = true, d2 = true;
+        for (int i = 0; i < size; i++) {
+            if (grid[i][i] != symbol) d1 = false;
+            if (grid[i][size-1-i] != symbol) d2 = false;
+        }
+        return d1 || d2;
+    }
+
+    boolean isFull() { return moves >= size * size; }
+}`}
+  go={`type Board struct {
+    grid  [][]rune
+    size  int
+    moves int
+}
+
+func NewBoard(size int) *Board {
+    grid := make([][]rune, size)
+    for i := range grid {
+        grid[i] = make([]rune, size)
+        for j := range grid[i] {
+            grid[i][j] = '.'
+        }
+    }
+    return &Board{grid: grid, size: size}
+}
+
+func (b *Board) Place(row, col int, symbol rune) bool {
+    if row < 0 || row >= b.size || col < 0 || col >= b.size {
+        return false
+    }
+    if b.grid[row][col] != '.' {
+        return false
+    }
+    b.grid[row][col] = symbol
+    b.moves++
+    return true
+}
+
+func (b *Board) CheckWinner(symbol rune) bool {
+    for i := 0; i < b.size; i++ {
+        rowWin, colWin := true, true
+        for j := 0; j < b.size; j++ {
+            if b.grid[i][j] != symbol { rowWin = false }
+            if b.grid[j][i] != symbol { colWin = false }
+        }
+        if rowWin || colWin { return true }
+    }
+    d1, d2 := true, true
+    for i := 0; i < b.size; i++ {
+        if b.grid[i][i] != symbol { d1 = false }
+        if b.grid[i][b.size-1-i] != symbol { d2 = false }
+    }
+    return d1 || d2
+}`}
+  cpp={`class Board {
+    std::vector<std::vector<char>> grid_;
+    int size_, moves_ = 0;
+
+public:
+    Board(int size) : size_(size),
+        grid_(size, std::vector<char>(size, '.')) {}
+
+    bool place(int r, int c, char symbol) {
+        if (r < 0 || r >= size_ || c < 0 || c >= size_
+            || grid_[r][c] != '.') return false;
+        grid_[r][c] = symbol;
+        moves_++;
+        return true;
+    }
+
+    bool checkWinner(char symbol) const {
+        for (int i = 0; i < size_; i++) {
+            bool row = true, col = true;
+            for (int j = 0; j < size_; j++) {
+                if (grid_[i][j] != symbol) row = false;
+                if (grid_[j][i] != symbol) col = false;
+            }
+            if (row || col) return true;
+        }
+        bool d1 = true, d2 = true;
+        for (int i = 0; i < size_; i++) {
+            if (grid_[i][i] != symbol) d1 = false;
+            if (grid_[i][size_-1-i] != symbol) d2 = false;
+        }
+        return d1 || d2;
+    }
+
+    bool isFull() const { return moves_ >= size_ * size_; }
+};`}
+/>
+
+---
+
+## 🔗 Related Concepts
+
+- [SOLID Principles](/concepts/lld/solid-principles) — SRP: Board handles grid logic, Game handles rules
+- [Behavioral Patterns](/concepts/lld/behavioral-patterns) — State pattern for game states
+- [UML Diagrams](/concepts/lld/uml-diagrams) — Class diagram for game entities
+
+---
+
+## 📝 Quick Quiz
+
+**Q1: How do you efficiently check for a winner after each move without scanning the entire board?**
+
+A) Check all cells every time  B) Only check the row, column, and diagonals of the last move
+
+**Answer: B** — After a move at (r, c), only row r, column c, and (if applicable) the two diagonals can complete. This reduces checks from O(n²) to O(n).

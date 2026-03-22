@@ -1,0 +1,153 @@
+# 🎯 What is a CDN?
+
+**CDN (Content Delivery Network)** is a geographically distributed network of servers that delivers web content to users from the server closest to them, reducing latency.
+
+> **Real-world analogy:** Imagine a global bookstore chain. Instead of shipping every book from a central warehouse in New York, they stock popular titles at **local stores worldwide**. When you want a bestseller in Tokyo, you get it from the Tokyo store instantly instead of waiting for a shipment from New York.
+
+---
+
+## 🌍 Real-World Example
+
+**Netflix** uses its own CDN called **Open Connect**. Netflix pre-positions popular movies and shows on servers inside ISP networks around the world. When you stream a show, the data comes from a server just a few miles away, not from Netflix's main data centers.
+
+---
+
+## 🔍 How Does It Work?
+
+1. **User** requests content (e.g., an image, video, CSS file)
+2. **DNS** resolves the domain to the nearest CDN **edge server**
+3. **Edge server** checks if it has the content cached
+4. **Cache hit**: Content returned immediately (fast!)
+5. **Cache miss**: Edge server fetches from the **origin server**, caches it, then returns it
+
+### CDN Architecture
+
+| Component | Role |
+|-----------|------|
+| **Origin Server** | The original source of content |
+| **Edge Servers** | Distributed servers close to users |
+| **PoPs** (Points of Presence) | Data center locations of edge servers |
+| **DNS** | Routes users to nearest edge server |
+
+---
+
+## 📊 What CDNs Cache
+
+| Content Type | Example | CDN Effectiveness |
+|:---|:---|:---:|
+| Static assets | Images, CSS, JS, fonts | Excellent |
+| Video content | Streaming media | Excellent |
+| API responses | Cacheable GET responses | Good |
+| Dynamic content | Personalized pages | Limited |
+
+---
+
+## 💻 Code Example: CDN Configuration
+
+<CodeBlock
+  title="CDN Cache Headers"
+  python={`# Setting proper cache headers for CDN (FastAPI)
+from fastapi import FastAPI
+from fastapi.responses import FileResponse
+
+app = FastAPI()
+
+@app.get("/api/product/{id}")
+async def get_product(id: int):
+    product = db.get_product(id)
+    response = JSONResponse(content=product)
+    # Cache on CDN for 5 minutes, stale allowed for 1 hour
+    response.headers["Cache-Control"] = "public, max-age=300, stale-while-revalidate=3600"
+    response.headers["CDN-Cache-Control"] = "max-age=300"
+    return response
+
+@app.get("/static/{filename}")
+async def get_static(filename: str):
+    response = FileResponse(f"./static/{filename}")
+    # Cache static files for 1 year (immutable content)
+    response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+    return response`}
+  java={`// Setting CDN cache headers (Spring Boot)
+@RestController
+public class ProductController {
+
+    @GetMapping("/api/product/{id}")
+    public ResponseEntity<Product> getProduct(@PathVariable Long id) {
+        Product product = productService.findById(id);
+        return ResponseEntity.ok()
+            .cacheControl(CacheControl.maxAge(5, TimeUnit.MINUTES)
+                .staleWhileRevalidate(1, TimeUnit.HOURS))
+            .body(product);
+    }
+
+    @GetMapping("/static/{filename}")
+    public ResponseEntity<Resource> getStatic(@PathVariable String filename) {
+        Resource resource = staticService.load(filename);
+        return ResponseEntity.ok()
+            .cacheControl(CacheControl.maxAge(365, TimeUnit.DAYS).cachePublic())
+            .body(resource);
+    }
+}`}
+  go={`func productHandler(w http.ResponseWriter, r *http.Request) {
+    product := db.GetProduct(r.PathValue("id"))
+
+    // Cache on CDN for 5 minutes
+    w.Header().Set("Cache-Control", "public, max-age=300, stale-while-revalidate=3600")
+    json.NewEncoder(w).Encode(product)
+}
+
+func staticHandler(w http.ResponseWriter, r *http.Request) {
+    // Cache static files for 1 year
+    w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+    http.ServeFile(w, r, "./static/"+r.PathValue("filename"))
+}`}
+  cpp={`// CDN Headers (conceptual)
+HttpResponse getProduct(const std::string& id) {
+    auto product = db.getProduct(id);
+    HttpResponse resp(200, product.toJson());
+    resp.setHeader("Cache-Control", "public, max-age=300");
+    return resp;
+}`}
+/>
+
+---
+
+## ⚖️ Pros & Cons
+
+| Pros ✅ | Cons ❌ |
+|---------|---------|
+| Reduced latency | Stale content risk |
+| Lower origin server load | Cost (bandwidth fees) |
+| DDoS protection | Cache invalidation complexity |
+| Global availability | Not suitable for all content types |
+
+---
+
+## 🧩 When to Use
+
+- **Always** for static assets (images, CSS, JS, fonts, videos)
+- **Often** for cacheable API responses
+- **Carefully** for personalized or real-time content
+
+---
+
+## 🔗 Related Concepts
+
+- [Caching](/concepts/hld/caching) — CDN is a caching layer at the network edge
+- [DNS](/concepts/hld/dns) — DNS routes users to nearby CDN edge servers
+- [Load Balancing](/concepts/hld/load-balancing) — CDNs include geographic load balancing
+- [Proxy](/concepts/hld/proxy) — CDN edge servers act as reverse proxies
+
+---
+
+## 📝 Quick Quiz
+
+**Q1: Your website serves the same product images to millions of users. Where should these images be served from?**
+
+A) The origin server directly  B) A CDN edge server near the user
+
+**Answer: B** — CDN edge servers drastically reduce latency and offload traffic from the origin.
+
+---
+
+*Sources: Cloudflare CDN Documentation, Netflix Open Connect, AWS CloudFront docs*

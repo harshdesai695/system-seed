@@ -1,0 +1,284 @@
+# 🎯 What are UML Diagrams?
+
+**UML (Unified Modeling Language)** diagrams are standardized visual representations of a software system's structure and behavior. They help engineers communicate design decisions, plan architectures, and document systems.
+
+> **Real-world analogy:** UML diagrams are like **architectural blueprints** for a building. Before construction begins, architects draw floor plans (class diagrams), plumbing flows (sequence diagrams), and electrical wiring (activity diagrams). Builders use these to understand and construct the building correctly.
+
+---
+
+## 🌍 Types of UML Diagrams
+
+### Structural Diagrams (Static)
+
+| Diagram | Purpose | Shows |
+|---------|---------|-------|
+| **Class Diagram** | Object structure | Classes, attributes, methods, relationships |
+| **Object Diagram** | Instance snapshot | Specific objects at a moment in time |
+| **Component Diagram** | System modules | High-level components and interfaces |
+| **Package Diagram** | Grouping | Namespaces and dependencies |
+
+### Behavioral Diagrams (Dynamic)
+
+| Diagram | Purpose | Shows |
+|---------|---------|-------|
+| **Use Case Diagram** | User interactions | Actors, use cases, system boundary |
+| **Sequence Diagram** | Message flow over time | Object interactions in order |
+| **Activity Diagram** | Workflow/process | Steps, decisions, parallel flows |
+| **State Diagram** | State transitions | States, events, transitions |
+
+---
+
+## 🔍 Key Relationships in Class Diagrams
+
+| Relationship | Symbol | Meaning | Example |
+|-------------|--------|---------|---------|
+| **Association** | — | "uses" | Student — Course |
+| **Aggregation** | ◇— | "has-a" (weak) | Team ◇— Player |
+| **Composition** | ◆— | "has-a" (strong, owns) | House ◆— Room |
+| **Inheritance** | △— | "is-a" | Dog △— Animal |
+| **Implementation** | △⋯ | "implements" | ArrayList △⋯ List |
+| **Dependency** | ⋯> | "depends on" | Controller ⋯> Service |
+
+---
+
+## 💻 Code Example: From UML to Code
+
+<CodeBlock
+  title="UML Class Diagram → Code"
+  python={`from abc import ABC, abstractmethod
+
+# ═══════ INTERFACE (<<interface>> in UML) ═══════
+class Payable(ABC):
+    @abstractmethod
+    def calculate_pay(self) -> float: ...
+
+# ═══════ BASE CLASS ═══════
+class Employee(ABC):
+    def __init__(self, emp_id: str, name: str):
+        self._emp_id = emp_id    # - private
+        self._name = name        # - private
+
+    @property
+    def name(self) -> str:       # + public getter
+        return self._name
+
+    @abstractmethod
+    def get_role(self) -> str: ...
+
+# ═══════ INHERITANCE (△—) ═══════
+class FullTimeEmployee(Employee, Payable):
+    def __init__(self, emp_id: str, name: str, salary: float):
+        super().__init__(emp_id, name)
+        self._salary = salary
+
+    def get_role(self) -> str:
+        return "Full-Time"
+
+    def calculate_pay(self) -> float:
+        return self._salary / 12
+
+# ═══════ COMPOSITION (◆—) ═══════
+class Department:
+    """Department OWNS employees (composition).
+    If department is deleted, employees are removed."""
+    def __init__(self, name: str):
+        self.name = name
+        self._employees: list[Employee] = []  # ◆— composition
+
+    def add_employee(self, emp: Employee):
+        self._employees.append(emp)
+
+    def get_payroll(self) -> float:
+        return sum(
+            e.calculate_pay()
+            for e in self._employees
+            if isinstance(e, Payable)
+        )
+
+# ═══════ AGGREGATION (◇—) ═══════
+class Project:
+    """Project HAS members but doesn't own them."""
+    def __init__(self, name: str):
+        self.name = name
+        self._members: list[Employee] = []  # ◇— aggregation
+
+    def add_member(self, emp: Employee):
+        self._members.append(emp)
+
+# Usage
+eng = Department("Engineering")
+alice = FullTimeEmployee("E001", "Alice", 120000)
+eng.add_employee(alice)
+print(f"Monthly payroll: ${'$'}{eng.get_payroll():,.2f}")`}
+  java={`// ═══════ INTERFACE ═══════
+interface Payable {
+    double calculatePay();
+}
+
+// ═══════ ABSTRACT CLASS ═══════
+abstract class Employee {
+    private String empId;      // - private
+    private String name;       // - private
+
+    protected Employee(String empId, String name) {
+        this.empId = empId;
+        this.name = name;
+    }
+
+    public String getName() { return name; }  // + public
+    public abstract String getRole();
+}
+
+// ═══════ INHERITANCE ═══════
+class FullTimeEmployee extends Employee implements Payable {
+    private double salary;
+
+    public FullTimeEmployee(String id, String name, double salary) {
+        super(id, name);
+        this.salary = salary;
+    }
+
+    public String getRole() { return "Full-Time"; }
+    public double calculatePay() { return salary / 12; }
+}
+
+// ═══════ COMPOSITION ═══════
+class Department {
+    private String name;
+    private List<Employee> employees = new ArrayList<>();
+
+    public Department(String name) { this.name = name; }
+
+    public void addEmployee(Employee emp) {
+        employees.add(emp);
+    }
+
+    public double getPayroll() {
+        return employees.stream()
+            .filter(e -> e instanceof Payable)
+            .mapToDouble(e -> ((Payable) e).calculatePay())
+            .sum();
+    }
+}`}
+  go={`// ═══════ INTERFACE ═══════
+type Payable interface {
+    CalculatePay() float64
+}
+
+// ═══════ BASE STRUCT ═══════
+type Employee struct {
+    empID string
+    name  string
+}
+
+func (e Employee) GetName() string { return e.name }
+
+// ═══════ COMPOSITION via embedding ═══════
+type FullTimeEmployee struct {
+    Employee          // "inheritance" via embedding
+    salary float64
+}
+
+func (f FullTimeEmployee) GetRole() string { return "Full-Time" }
+func (f FullTimeEmployee) CalculatePay() float64 {
+    return f.salary / 12
+}
+
+// ═══════ COMPOSITION ═══════
+type Department struct {
+    name      string
+    employees []Payable
+}
+
+func (d *Department) AddEmployee(emp Payable) {
+    d.employees = append(d.employees, emp)
+}
+
+func (d *Department) GetPayroll() float64 {
+    total := 0.0
+    for _, emp := range d.employees {
+        total += emp.CalculatePay()
+    }
+    return total
+}`}
+  cpp={`// ═══════ INTERFACE ═══════
+class Payable {
+public:
+    virtual ~Payable() = default;
+    virtual double calculatePay() const = 0;
+};
+
+// ═══════ ABSTRACT CLASS ═══════
+class Employee {
+    std::string empId_;
+    std::string name_;
+public:
+    Employee(std::string id, std::string name)
+        : empId_(std::move(id)), name_(std::move(name)) {}
+    virtual ~Employee() = default;
+    const std::string& getName() const { return name_; }
+    virtual std::string getRole() const = 0;
+};
+
+// ═══════ INHERITANCE ═══════
+class FullTimeEmployee : public Employee, public Payable {
+    double salary_;
+public:
+    FullTimeEmployee(std::string id, std::string name, double sal)
+        : Employee(std::move(id), std::move(name)), salary_(sal) {}
+    std::string getRole() const override { return "Full-Time"; }
+    double calculatePay() const override { return salary_ / 12; }
+};
+
+// ═══════ COMPOSITION ═══════
+class Department {
+    std::string name_;
+    std::vector<std::unique_ptr<Employee>> employees_;
+public:
+    Department(std::string name) : name_(std::move(name)) {}
+    void addEmployee(std::unique_ptr<Employee> emp) {
+        employees_.push_back(std::move(emp));
+    }
+};`}
+/>
+
+---
+
+## 📊 UML Visibility Modifiers
+
+| Symbol | Visibility | Access |
+|--------|-----------|--------|
+| `+` | Public | Accessible to all |
+| `-` | Private | Class only |
+| `#` | Protected | Class + subclasses |
+| `~` | Package | Same package |
+
+---
+
+## 🧩 When to Use Each Diagram
+
+| Diagram | Phase | Audience |
+|---------|-------|----------|
+| **Use Case** | Requirements gathering | Product managers, stakeholders |
+| **Class** | Design phase | Developers |
+| **Sequence** | Detailed design | Developers |
+| **Activity** | Process documentation | Everyone |
+| **State** | Complex state logic | Developers |
+
+---
+
+## 🔗 Related Concepts
+
+- [SOLID Principles](/concepts/lld/solid-principles) — UML helps visualize SOLID compliance
+- [Creational Patterns](/concepts/lld/creational-patterns) — Factory, Builder patterns in class diagrams
+- [Structural Patterns](/concepts/lld/structural-patterns) — Adapter, Decorator patterns in class diagrams
+
+---
+
+## 📝 Quick Quiz
+
+**Q1: A `Car` has an `Engine`. If the `Car` is destroyed, the `Engine` is also destroyed. What UML relationship is this?**
+
+A) Aggregation  B) Composition  C) Association
+
+**Answer: B** — Composition (◆—) means the container **owns** the part. When a Car is destroyed, its Engine goes with it.

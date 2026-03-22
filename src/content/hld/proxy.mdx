@@ -1,0 +1,164 @@
+# 🎯 What is a Proxy?
+
+**Proxy** is an intermediate server that sits between a client and a backend server. It intercepts requests and can modify, filter, or route them. There are two types: **Forward Proxy** (acts on behalf of clients) and **Reverse Proxy** (acts on behalf of servers).
+
+> **Real-world analogy:** A **forward proxy** is like a **personal assistant** who makes phone calls for you — the person on the other end doesn't know who's really calling. A **reverse proxy** is like a **hotel receptionist** — guests (clients) talk to the receptionist, who routes them to the right room (server). Guests don't interact with rooms directly.
+
+---
+
+## 🌍 Real-World Example
+
+**Cloudflare** acts as a reverse proxy for millions of websites. When you visit a Cloudflare-protected site, your request first goes to Cloudflare's servers, which filter out malicious traffic, serve cached content, and forward legitimate requests to the origin server. The user never communicates directly with the origin.
+
+---
+
+## 🔍 Forward Proxy vs Reverse Proxy
+
+| Aspect | Forward Proxy | Reverse Proxy |
+|--------|:---:|:---:|
+| **Who it serves** | Clients | Servers |
+| **Who knows about it** | Client configures it | Client doesn't know it exists |
+| **Position** | Between client and internet | Between internet and servers |
+| **Use cases** | Privacy, filtering, caching | Load balancing, SSL, security |
+| **Examples** | VPN, Squid Proxy | Nginx, HAProxy, Cloudflare |
+
+---
+
+## 💻 Code Example: Reverse Proxy Logic
+
+<CodeBlock
+  title="Simple Reverse Proxy"
+  python={`import http.server
+import urllib.request
+
+class ReverseProxy(http.server.BaseHTTPRequestHandler):
+    BACKEND_SERVERS = [
+        "http://backend-1:8080",
+        "http://backend-2:8080",
+    ]
+    current = 0
+
+    def do_GET(self):
+        # Round-robin load balancing
+        backend = self.BACKEND_SERVERS[ReverseProxy.current % len(self.BACKEND_SERVERS)]
+        ReverseProxy.current += 1
+
+        # Forward the request to backend
+        target_url = backend + self.path
+        print(f"Proxying {self.path} → {target_url}")
+
+        try:
+            with urllib.request.urlopen(target_url) as response:
+                self.send_response(response.status)
+                self.end_headers()
+                self.wfile.write(response.read())
+        except Exception as e:
+            self.send_response(502)
+            self.end_headers()
+            self.wfile.write(b"Bad Gateway")`}
+  java={`public class ReverseProxy {
+    private final List<String> backends = List.of(
+        "http://backend-1:8080",
+        "http://backend-2:8080"
+    );
+    private int current = 0;
+
+    public HttpResponse proxy(HttpRequest clientRequest) {
+        // Round-robin backend selection
+        String backend = backends.get(current++ % backends.size());
+        String targetUrl = backend + clientRequest.getPath();
+
+        System.out.println("Proxying " + clientRequest.getPath() + " → " + targetUrl);
+
+        try {
+            // Forward request to backend
+            HttpResponse backendResponse = httpClient.send(
+                HttpRequest.newBuilder().uri(URI.create(targetUrl)).build(),
+                HttpResponse.BodyHandlers.ofString()
+            );
+            return backendResponse;
+        } catch (Exception e) {
+            return HttpResponse.status(502).body("Bad Gateway");
+        }
+    }
+}`}
+  go={`type ReverseProxy struct {
+    backends []string
+    current  uint64
+}
+
+func (rp *ReverseProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+    // Round-robin
+    idx := atomic.AddUint64(&rp.current, 1) % uint64(len(rp.backends))
+    target := rp.backends[idx] + r.URL.Path
+    fmt.Printf("Proxying %s → %s\\n", r.URL.Path, target)
+
+    resp, err := http.Get(target)
+    if err != nil {
+        http.Error(w, "Bad Gateway", http.StatusBadGateway)
+        return
+    }
+    defer resp.Body.Close()
+    w.WriteHeader(resp.StatusCode)
+    io.Copy(w, resp.Body)
+}`}
+  cpp={`class ReverseProxy {
+    std::vector<std::string> backends;
+    std::atomic<size_t> current{0};
+
+public:
+    HttpResponse proxy(const HttpRequest& req) {
+        size_t idx = current.fetch_add(1) % backends.size();
+        std::string target = backends[idx] + req.path();
+        std::cout << "Proxying " << req.path() << " → " << target << std::endl;
+        return httpClient.forward(target, req);
+    }
+};`}
+/>
+
+---
+
+## 📊 What Reverse Proxies Do
+
+| Function | Description |
+|----------|-------------|
+| **Load Balancing** | Distribute traffic across backend servers |
+| **SSL Termination** | Handle HTTPS encryption/decryption |
+| **Caching** | Cache responses to reduce backend load |
+| **Compression** | Compress responses (gzip/brotli) |
+| **Security** | Filter malicious requests, hide backend IPs |
+| **Rate Limiting** | Enforce request limits |
+
+---
+
+## ⚖️ Pros & Cons
+
+| Pros ✅ | Cons ❌ |
+|---------|---------|
+| Security (hides backend) | Single point of failure |
+| Load balancing | Added latency (extra hop) |
+| SSL termination | Configuration complexity |
+| Caching | Can mask backend issues |
+
+---
+
+## 🔗 Related Concepts
+
+- [Load Balancing](/concepts/hld/load-balancing) — Reverse proxies are often load balancers
+- [CDN](/concepts/hld/cdn) — CDN edge servers act as reverse proxies
+- [Rate Limiting](/concepts/hld/rate-limiting) — Often implemented at the proxy level
+- [Microservices](/concepts/hld/microservices) — API gateways are reverse proxies
+
+---
+
+## 📝 Quick Quiz
+
+**Q1: You want to hide your backend servers' IP addresses from the public. What do you use?**
+
+A) Forward Proxy  B) Reverse Proxy
+
+**Answer: B** — A reverse proxy sits in front of your servers. Clients only see the proxy's IP.
+
+---
+
+*Sources: Nginx Documentation, Cloudflare Proxy docs, HAProxy docs*

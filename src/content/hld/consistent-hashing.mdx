@@ -1,0 +1,251 @@
+# 🎯 What is Consistent Hashing?
+
+**Consistent Hashing** is a technique used to distribute data across multiple servers in a way that minimizes redistribution when servers are added or removed.
+
+> **Real-world analogy:** Imagine a **circular clock** where each hour mark is a server. To store an item, you find its "time" on the clock and walk clockwise until you reach the next server — that's where it's stored. If you add a new server at 3 o'clock, only the items between 2 and 3 need to move. The rest stay put. With regular hashing, adding a server would shuffle *everything*.
+
+---
+
+## 🌍 Real-World Example
+
+**Amazon DynamoDB** and **Apache Cassandra** both use consistent hashing to distribute data across nodes. When Cassandra adds a new node to a cluster, only a fraction of the data (roughly 1/N of total) needs to be redistributed, rather than rehashing everything.
+
+---
+
+## 🔍 The Problem with Regular Hashing
+
+With regular hashing: `server = hash(key) % number_of_servers`
+
+| Key | hash(key) | 3 servers (% 3) | 4 servers (% 4) |
+|:---:|:---------:|:----------------:|:----------------:|
+| "user1" | 7 | Server 1 | Server 3 |
+| "user2" | 12 | Server 0 | Server 0 |
+| "user3" | 5 | Server 2 | Server 1 |
+| "user4" | 9 | Server 0 | Server 1 |
+
+When you go from 3 to 4 servers, **almost every key moves** to a different server. For caches, this means nearly all cached data becomes invalid — a "cache stampede."
+
+---
+
+## 🔍 How Consistent Hashing Works
+
+1. **Create a ring** (0 to 2^32 - 1)
+2. **Place servers** on the ring by hashing their name/IP
+3. **Place keys** on the ring by hashing the key
+4. **Walk clockwise** from the key's position to find the nearest server
+5. That server stores/serves the key
+
+### Adding a Server
+Only keys between the new server and the previous server (counter-clockwise) need to be moved. Everything else stays.
+
+### Removing a Server
+Only keys on the removed server get reassigned to the next server clockwise. Everything else stays.
+
+---
+
+## 💻 Code Example: Consistent Hash Ring
+
+<CodeBlock
+  title="Consistent Hashing Implementation"
+  java={`import java.util.*;
+
+public class ConsistentHashRing {
+    private final TreeMap<Integer, String> ring = new TreeMap<>();
+    private final int virtualNodes;
+
+    public ConsistentHashRing(int virtualNodes) {
+        this.virtualNodes = virtualNodes;
+    }
+
+    private int hash(String key) {
+        return Math.abs(key.hashCode());
+    }
+
+    public void addServer(String server) {
+        for (int i = 0; i < virtualNodes; i++) {
+            int h = hash(server + "-vn-" + i);
+            ring.put(h, server);
+        }
+        System.out.println("Added server: " + server);
+    }
+
+    public void removeServer(String server) {
+        for (int i = 0; i < virtualNodes; i++) {
+            int h = hash(server + "-vn-" + i);
+            ring.remove(h);
+        }
+        System.out.println("Removed server: " + server);
+    }
+
+    public String getServer(String key) {
+        if (ring.isEmpty()) return null;
+        int h = hash(key);
+        // Find the first server clockwise from the key's hash
+        Map.Entry<Integer, String> entry = ring.ceilingEntry(h);
+        if (entry == null) {
+            entry = ring.firstEntry(); // Wrap around the ring
+        }
+        return entry.getValue();
+    }
+}`}
+  python={`import hashlib
+from bisect import bisect_right
+
+class ConsistentHashRing:
+    def __init__(self, virtual_nodes: int = 150):
+        self.virtual_nodes = virtual_nodes
+        self.ring: dict[int, str] = {}
+        self.sorted_keys: list[int] = []
+
+    def _hash(self, key: str) -> int:
+        return int(hashlib.md5(key.encode()).hexdigest(), 16)
+
+    def add_server(self, server: str):
+        for i in range(self.virtual_nodes):
+            h = self._hash(f"{server}-vn-{i}")
+            self.ring[h] = server
+        self.sorted_keys = sorted(self.ring.keys())
+        print(f"Added server: {server}")
+
+    def remove_server(self, server: str):
+        for i in range(self.virtual_nodes):
+            h = self._hash(f"{server}-vn-{i}")
+            self.ring.pop(h, None)
+        self.sorted_keys = sorted(self.ring.keys())
+        print(f"Removed server: {server}")
+
+    def get_server(self, key: str) -> str:
+        if not self.ring:
+            return None
+        h = self._hash(key)
+        idx = bisect_right(self.sorted_keys, h) % len(self.sorted_keys)
+        return self.ring[self.sorted_keys[idx]]
+
+# Usage
+ring = ConsistentHashRing(virtual_nodes=150)
+ring.add_server("server-1")
+ring.add_server("server-2")
+ring.add_server("server-3")
+print(ring.get_server("user:123"))  # → server-2
+print(ring.get_server("user:456"))  # → server-1`}
+  go={`type ConsistentHash struct {
+    ring         map[uint32]string
+    sortedKeys   []uint32
+    virtualNodes int
+    mu           sync.RWMutex
+}
+
+func NewConsistentHash(vnodes int) *ConsistentHash {
+    return &ConsistentHash{
+        ring:         make(map[uint32]string),
+        virtualNodes: vnodes,
+    }
+}
+
+func (c *ConsistentHash) hash(key string) uint32 {
+    h := crc32.ChecksumIEEE([]byte(key))
+    return h
+}
+
+func (c *ConsistentHash) AddServer(server string) {
+    c.mu.Lock()
+    defer c.mu.Unlock()
+    for i := 0; i < c.virtualNodes; i++ {
+        h := c.hash(fmt.Sprintf("%s-vn-%d", server, i))
+        c.ring[h] = server
+        c.sortedKeys = append(c.sortedKeys, h)
+    }
+    sort.Slice(c.sortedKeys, func(i, j int) bool {
+        return c.sortedKeys[i] < c.sortedKeys[j]
+    })
+}
+
+func (c *ConsistentHash) GetServer(key string) string {
+    c.mu.RLock()
+    defer c.mu.RUnlock()
+    h := c.hash(key)
+    idx := sort.Search(len(c.sortedKeys), func(i int) bool {
+        return c.sortedKeys[i] >= h
+    })
+    if idx >= len(c.sortedKeys) {
+        idx = 0
+    }
+    return c.ring[c.sortedKeys[idx]]
+}`}
+  cpp={`#include <map>
+#include <string>
+#include <functional>
+
+class ConsistentHashRing {
+    std::map<size_t, std::string> ring;
+    int virtualNodes;
+
+    size_t hash(const std::string& key) {
+        return std::hash<std::string>{}(key);
+    }
+
+public:
+    ConsistentHashRing(int vnodes = 150) : virtualNodes(vnodes) {}
+
+    void addServer(const std::string& server) {
+        for (int i = 0; i < virtualNodes; i++) {
+            size_t h = hash(server + "-vn-" + std::to_string(i));
+            ring[h] = server;
+        }
+    }
+
+    std::string getServer(const std::string& key) {
+        size_t h = hash(key);
+        auto it = ring.lower_bound(h);
+        if (it == ring.end()) it = ring.begin();
+        return it->second;
+    }
+};`}
+  highlightLines={{ java: [33, 34, 35, 36], python: [29, 30, 31, 32] }}
+/>
+
+---
+
+## 📊 Virtual Nodes
+
+Without virtual nodes, servers may be unevenly distributed on the ring (some get more keys than others). **Virtual nodes** solve this by placing each physical server at **multiple points** on the ring.
+
+| Virtual Nodes | Data Distribution | Overhead |
+|:---:|:---:|:---:|
+| 1 per server | Very uneven | Minimal |
+| 50 per server | Better | Low |
+| 150 per server | Near-uniform | Medium |
+| 500 per server | Excellent | Higher memory |
+
+---
+
+## ⚖️ Pros & Cons
+
+| Pros ✅ | Cons ❌ |
+|---------|---------|
+| Minimal data movement on changes | More complex than simple hash |
+| Horizontal scalability | Virtual nodes add memory overhead |
+| Even distribution with virtual nodes | Hot spots possible without virtual nodes |
+
+---
+
+## 🔗 Related Concepts
+
+- [Database Sharding](/concepts/hld/database-sharding) — Consistent hashing solves shard rebalancing
+- [Load Balancing](/concepts/hld/load-balancing) — Can use consistent hashing for session affinity
+- [Caching](/concepts/hld/caching) — Distributed caches like Memcached use consistent hashing
+- [CAP Theorem](/concepts/hld/cap-theorem) — Consistent hashing is used in AP and CP systems
+
+---
+
+## 📝 Quick Quiz
+
+**Q1: You have 4 cache servers using regular hashing. A 5th server is added. What percentage of cached data becomes invalid?**
+
+A) ~20%  B) ~50%  C) ~80%
+
+**Answer: C** — With regular `hash % N`, changing N from 4 to 5 invalidates approximately 80% of cached entries. With consistent hashing, only ~20% would need to move.
+
+---
+
+*Sources: David Karger's original consistent hashing paper, Designing Data-Intensive Applications, Amazon DynamoDB paper*

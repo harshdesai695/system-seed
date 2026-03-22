@@ -1,0 +1,213 @@
+# 🎯 What is Database Sharding?
+
+**Database Sharding** is the practice of splitting a large database into smaller, faster, more manageable pieces called **shards**. Each shard holds a subset of the total data and runs on its own server.
+
+> **Real-world analogy:** Imagine a **public library** that has grown too big for one building. Instead of one massive library, the city builds **three branches**: Branch A holds books by authors A-H, Branch B holds I-P, and Branch C holds Q-Z. Each branch is smaller and faster to search. That's sharding — splitting data across multiple "branches."
+
+---
+
+## 🌍 Real-World Example
+
+**Instagram** stores billions of photos and user data. A single database server can't hold or query all of it. Instagram shards its PostgreSQL databases by **user ID** — users 1-1,000,000 go to Shard 1, users 1,000,001-2,000,000 go to Shard 2, and so on. This lets each shard handle a manageable amount of data independently.
+
+---
+
+## 🔍 How Does It Work?
+
+### The Shard Key
+The **shard key** determines which shard a piece of data goes to. Choosing the right shard key is the most important decision.
+
+| Shard Key Strategy | How it works | Example |
+|:-:|:-:|:-:|
+| **Range-based** | Data split by ranges of the key | Users A-H → Shard 1, I-P → Shard 2 |
+| **Hash-based** | Hash the key, mod by shard count | hash(userId) % 3 → Shard 0, 1, or 2 |
+| **Geographic** | Data split by region | US data → Shard US, EU data → Shard EU |
+| **Directory-based** | A lookup table maps keys to shards | Lookup service tells you which shard to query |
+
+### Sharding Flow
+
+1. **Client** sends a query with a key (e.g., userId=12345)
+2. **Router** applies the shard function to determine the target shard
+3. **Request** is routed to the correct shard
+4. **Shard** processes the query and returns the result
+
+---
+
+## 💻 Code Example: Hash-Based Sharding
+
+<CodeBlock
+  title="Hash-Based Shard Router"
+  java={`import java.util.HashMap;
+import java.util.Map;
+
+public class ShardRouter {
+    private final int shardCount;
+    private final Map<Integer, DatabaseConnection> shards = new HashMap<>();
+
+    public ShardRouter(int shardCount) {
+        this.shardCount = shardCount;
+        for (int i = 0; i < shardCount; i++) {
+            shards.put(i, new DatabaseConnection("shard-" + i));
+        }
+    }
+
+    public int getShardId(String key) {
+        // Hash the key and mod by shard count
+        int hash = Math.abs(key.hashCode());
+        return hash % shardCount;
+    }
+
+    public DatabaseConnection getShard(String key) {
+        int shardId = getShardId(key);
+        System.out.println("Key '" + key + "' → Shard " + shardId);
+        return shards.get(shardId);
+    }
+
+    public void insert(String userId, String data) {
+        DatabaseConnection shard = getShard(userId);
+        shard.execute("INSERT INTO users VALUES (?, ?)", userId, data);
+    }
+}`}
+  python={`class ShardRouter:
+    def __init__(self, shard_count: int):
+        self.shard_count = shard_count
+        self.shards = {
+            i: DatabaseConnection(f"shard-{i}")
+            for i in range(shard_count)
+        }
+
+    def get_shard_id(self, key: str) -> int:
+        # Hash the key and mod by shard count
+        return abs(hash(key)) % self.shard_count
+
+    def get_shard(self, key: str):
+        shard_id = self.get_shard_id(key)
+        print(f"Key '{key}' → Shard {shard_id}")
+        return self.shards[shard_id]
+
+    def insert(self, user_id: str, data: str):
+        shard = self.get_shard(user_id)
+        shard.execute("INSERT INTO users VALUES (?, ?)", user_id, data)
+
+# Usage
+router = ShardRouter(shard_count=4)
+router.insert("user_123", '{"name": "Alice"}')`}
+  go={`type ShardRouter struct {
+    shardCount int
+    shards     map[int]*DatabaseConnection
+}
+
+func NewShardRouter(count int) *ShardRouter {
+    shards := make(map[int]*DatabaseConnection)
+    for i := 0; i < count; i++ {
+        shards[i] = NewDatabaseConnection(fmt.Sprintf("shard-%d", i))
+    }
+    return &ShardRouter{shardCount: count, shards: shards}
+}
+
+func (r *ShardRouter) GetShardID(key string) int {
+    h := fnv.New32a()
+    h.Write([]byte(key))
+    return int(h.Sum32()) % r.shardCount
+}
+
+func (r *ShardRouter) GetShard(key string) *DatabaseConnection {
+    id := r.GetShardID(key)
+    fmt.Printf("Key '%s' → Shard %d\\n", key, id)
+    return r.shards[id]
+}`}
+  cpp={`class ShardRouter {
+    int shardCount;
+    std::unordered_map<int, DatabaseConnection*> shards;
+
+public:
+    ShardRouter(int count) : shardCount(count) {
+        for (int i = 0; i < count; i++) {
+            shards[i] = new DatabaseConnection("shard-" + std::to_string(i));
+        }
+    }
+
+    int getShardId(const std::string& key) {
+        size_t hash = std::hash<std::string>{}(key);
+        return hash % shardCount;
+    }
+
+    DatabaseConnection* getShard(const std::string& key) {
+        int id = getShardId(key);
+        std::cout << "Key '" << key << "' → Shard " << id << std::endl;
+        return shards[id];
+    }
+};`}
+  highlightLines={{ java: [16, 17, 18], python: [11, 12, 13] }}
+/>
+
+---
+
+## 📊 Challenges of Sharding
+
+| Challenge | Description | Solution |
+|-----------|-------------|----------|
+| **Cross-shard queries** | JOINs across shards are complex | Denormalize data, application-level joins |
+| **Hotspots** | One shard gets more traffic than others | Better shard key, consistent hashing |
+| **Rebalancing** | Adding/removing shards requires data migration | Consistent hashing, virtual nodes |
+| **Transactions** | ACID across shards is very difficult | Saga pattern, two-phase commit |
+| **Referential integrity** | Foreign keys don't work across shards | Application-level enforcement |
+
+---
+
+## ⚖️ Pros & Cons
+
+| Pros ✅ | Cons ❌ |
+|---------|---------|
+| Horizontal scalability | Increased complexity |
+| Improved query performance | Cross-shard queries are hard |
+| Reduced index size per shard | Data rebalancing challenges |
+| Fault isolation (one shard fails, others work) | Operational overhead |
+
+---
+
+## 🧩 When to Use / When NOT to Use
+
+**Use sharding when:**
+- Your database has outgrown a single server
+- Read/write performance has degraded significantly
+- You need to store terabytes or petabytes of data
+
+**Don't shard when:**
+- Vertical scaling (bigger server) can still solve the problem
+- Your data fits comfortably on one server
+- You need lots of cross-table JOINs
+- You're early stage — sharding is complex; don't add it prematurely
+
+---
+
+## 🔗 Related Concepts
+
+- [Consistent Hashing](/concepts/hld/consistent-hashing) — Solves the rebalancing problem in sharding
+- [Database Replication](/concepts/hld/database-replication) — Often combined with sharding for availability
+- [Database Design](/concepts/hld/database-design) — Understanding SQL vs NoSQL before sharding
+- [Scalability](/concepts/hld/scalability) — Sharding is a form of horizontal scaling
+
+---
+
+## 📝 Quick Quiz
+
+**Q1: You have a users table with 10 billion rows. Queries are slow. What should you consider first?**
+
+A) Delete old users
+B) Database sharding by user ID
+C) Switch from SQL to NoSQL
+
+**Answer: B** — Sharding distributes the data across multiple servers, reducing the size each server must handle.
+
+**Q2: You shard by user's country, but 60% of your users are in the US. What problem will you face?**
+
+A) Cross-shard queries
+B) Hotspot — the US shard is overloaded
+C) Data loss
+
+**Answer: B** — Geographic sharding with uneven distribution creates hotspots. Hash-based sharding would distribute more evenly.
+
+---
+
+*Sources: Designing Data-Intensive Applications by Martin Kleppmann, Instagram Engineering Blog, Vitess Documentation*

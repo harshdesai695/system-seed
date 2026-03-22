@@ -1,0 +1,230 @@
+# 🎯 What is Event-Driven Architecture?
+
+**Event-Driven Architecture (EDA)** is a design pattern where the flow of the program is determined by **events** — significant changes in state. Components produce, detect, and react to events asynchronously, enabling loose coupling and high scalability.
+
+> **Real-world analogy:** Think of a **newspaper subscription**. The publisher doesn't call every subscriber when news breaks. Instead, they publish the newspaper (emit an event), and all subscribers receive it independently. Subscribers can join or leave without the publisher knowing.
+
+---
+
+## 🌍 Real-World Example
+
+**Uber** uses EDA extensively. When a rider requests a ride, an event is emitted. Multiple services react independently: the matching service finds a driver, the pricing service calculates fare, the notification service alerts the driver, and the analytics service logs the request — all triggered by one event.
+
+---
+
+## 🔍 Core Patterns
+
+### 1. Event Notification
+Producer emits an event; consumers react. No response expected.
+
+### 2. Event-Carried State Transfer
+Events carry enough data for consumers to update their own state without querying back.
+
+### 3. Event Sourcing
+Store every state change as an immutable event. Current state = replay all events.
+
+### 4. CQRS (Command Query Responsibility Segregation)
+Separate write operations (commands) from read operations (queries) using different models.
+
+---
+
+## 📊 Architecture Comparison
+
+| Pattern | Coupling | Throughput | Complexity | Data Consistency |
+|---------|----------|-----------|------------|-----------------|
+| **Request-Response** | Tight | Lower | Low | Strong |
+| **Event-Driven** | Loose | High | Medium | Eventual |
+| **Event Sourcing** | Loose | High | High | Event-based |
+| **CQRS + Events** | Loose | Very High | Very High | Eventual |
+
+---
+
+## 💻 Code Example: Event System
+
+<CodeBlock
+  title="Event-Driven System"
+  python={`from typing import Callable
+from dataclasses import dataclass, field
+from datetime import datetime
+from collections import defaultdict
+
+@dataclass
+class Event:
+    type: str
+    data: dict
+    timestamp: datetime = field(default_factory=datetime.utcnow)
+
+class EventBus:
+    def __init__(self):
+        self._handlers: dict[str, list[Callable]] = defaultdict(list)
+        self._event_store: list[Event] = []
+
+    def subscribe(self, event_type: str, handler: Callable):
+        self._handlers[event_type].append(handler)
+
+    def publish(self, event: Event):
+        self._event_store.append(event)  # Event sourcing
+        for handler in self._handlers.get(event.type, []):
+            handler(event)
+
+    def replay(self):
+        for event in self._event_store:
+            for handler in self._handlers.get(event.type, []):
+                handler(event)
+
+# --- Services subscribe to events ---
+bus = EventBus()
+
+def send_confirmation(event: Event):
+    print(f"📧 Confirmation sent to {event.data['email']}")
+
+def update_inventory(event: Event):
+    print(f"📦 Inventory reduced for {event.data['product']}")
+
+def process_payment(event: Event):
+    print(f"💳 Charged ${'$'}{event.data['amount']}")
+
+bus.subscribe("order.placed", send_confirmation)
+bus.subscribe("order.placed", update_inventory)
+bus.subscribe("order.placed", process_payment)
+
+# One event triggers all three services
+bus.publish(Event("order.placed", {
+    "email": "user@example.com",
+    "product": "Widget",
+    "amount": 29.99
+}))`}
+  java={`import java.util.*;
+import java.util.concurrent.*;
+import java.util.function.Consumer;
+
+public class EventBus {
+    private final Map<String, List<Consumer<Event>>> handlers
+        = new ConcurrentHashMap<>();
+    private final List<Event> eventStore
+        = new CopyOnWriteArrayList<>();
+
+    public void subscribe(String eventType,
+                          Consumer<Event> handler) {
+        handlers.computeIfAbsent(eventType,
+            k -> new CopyOnWriteArrayList<>()).add(handler);
+    }
+
+    public void publish(Event event) {
+        eventStore.add(event);
+        List<Consumer<Event>> list = handlers.get(event.type());
+        if (list != null) {
+            list.forEach(h -> h.accept(event));
+        }
+    }
+
+    public record Event(String type, Map<String, Object> data) {}
+
+    public static void main(String[] args) {
+        EventBus bus = new EventBus();
+        bus.subscribe("order.placed", e ->
+            System.out.println("📧 Email: " + e.data().get("email")));
+        bus.subscribe("order.placed", e ->
+            System.out.println("📦 Inventory updated"));
+
+        bus.publish(new Event("order.placed",
+            Map.of("email", "user@test.com", "product", "Widget")));
+    }
+}`}
+  go={`type Event struct {
+    Type      string
+    Data      map[string]interface{}
+    Timestamp time.Time
+}
+
+type Handler func(Event)
+
+type EventBus struct {
+    mu       sync.RWMutex
+    handlers map[string][]Handler
+    store    []Event
+}
+
+func NewEventBus() *EventBus {
+    return &EventBus{
+        handlers: make(map[string][]Handler),
+    }
+}
+
+func (eb *EventBus) Subscribe(eventType string, h Handler) {
+    eb.mu.Lock()
+    defer eb.mu.Unlock()
+    eb.handlers[eventType] = append(eb.handlers[eventType], h)
+}
+
+func (eb *EventBus) Publish(event Event) {
+    event.Timestamp = time.Now()
+    eb.mu.Lock()
+    eb.store = append(eb.store, event)
+    handlers := eb.handlers[event.Type]
+    eb.mu.Unlock()
+
+    for _, h := range handlers {
+        h(event)
+    }
+}`}
+  cpp={`class EventBus {
+    using Handler = std::function<void(const Event&)>;
+    std::unordered_map<std::string, std::vector<Handler>> handlers_;
+    std::vector<Event> store_;
+    std::mutex mutex_;
+
+public:
+    void subscribe(const std::string& type, Handler handler) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        handlers_[type].push_back(std::move(handler));
+    }
+
+    void publish(Event event) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        store_.push_back(event);
+        auto it = handlers_.find(event.type);
+        if (it != handlers_.end()) {
+            for (auto& handler : it->second) {
+                handler(event);
+            }
+        }
+    }
+};`}
+/>
+
+---
+
+## ⚖️ Pros & Cons
+
+| Pros ✅ | Cons ❌ |
+|---------|---------|
+| Loose coupling between services | Harder to debug/trace |
+| Highly scalable | Eventual consistency challenges |
+| Easy to add new consumers | Event ordering can be tricky |
+| Natural audit trail (event store) | Requires infrastructure (message brokers) |
+
+---
+
+## 🧩 When to Use
+
+- **Use when:** Microservices need to react independently, real-time processing, audit trails, high throughput systems
+- **Avoid when:** Strong consistency is required, simple CRUD applications, team lacks experience with async systems
+
+---
+
+## 🔗 Related Concepts
+
+- [Message Queues](/concepts/hld/message-queues) — Transport layer for events
+- [Microservices](/concepts/hld/microservices) — EDA enables microservice communication
+- [Distributed Tracing](/concepts/hld/distributed-tracing) — Track events across services
+
+---
+
+## 📝 Quick Quiz
+
+**Q1: In an e-commerce system, when an order is placed, inventory, email, and billing need to update. What approach minimizes coupling?**
+
+A) Order service calls each service directly  B) Order service publishes an event; each service subscribes
+
+**Answer: B** — Event-driven design lets each service react independently. Adding new consumers (e.g., analytics) requires zero changes to the order service.

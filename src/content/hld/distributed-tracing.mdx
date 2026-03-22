@@ -1,0 +1,296 @@
+# 🎯 What is Distributed Tracing?
+
+**Distributed tracing** tracks a request as it flows through multiple services in a distributed system. It creates a **trace** — a tree of spans representing each service call — giving you end-to-end visibility into request latency, errors, and dependencies.
+
+> **Real-world analogy:** Like a **package tracking system** (FedEx, UPS). When you ship a package, you get a tracking number. At every checkpoint (warehouse, truck, customs, delivery), its timestamp is logged. You can see exactly where it is, how long each step took, and where delays occurred. Distributed tracing does this for requests.
+
+---
+
+## 🌍 Real-World Example
+
+**Uber** uses **Jaeger** (which they created) to trace requests across their 4,000+ microservices. When a ride request takes too long, engineers can see the exact trace — "API Gateway → Matching → Pricing → Payment → Notification" — and identify that the Pricing service added 2 seconds of latency.
+
+---
+
+## 🔍 Key Concepts
+
+| Term | Description |
+|------|-------------|
+| **Trace** | The complete journey of a request through all services |
+| **Span** | A single operation within a trace (one service call) |
+| **Trace ID** | Unique identifier that follows the request everywhere |
+| **Span ID** | Unique identifier for each individual span |
+| **Parent Span** | The span that initiated the current span |
+| **Context Propagation** | Passing trace/span IDs across service boundaries |
+| **Baggage** | Key-value pairs carried alongside the trace context |
+
+---
+
+## 📊 Tracing Tools Comparison
+
+| Tool | Developed By | Protocol | Storage | Open Source |
+|------|-------------|----------|---------|-------------|
+| **Jaeger** | Uber | OpenTelemetry | Cassandra, ES | Yes |
+| **Zipkin** | Twitter | B3 | MySQL, Cassandra | Yes |
+| **Datadog APM** | Datadog | OpenTelemetry | Managed | No |
+| **AWS X-Ray** | Amazon | X-Ray SDK | Managed | No |
+
+---
+
+## 💻 Code Example: Distributed Tracing
+
+<CodeBlock
+  title="Request Tracer"
+  python={`import uuid
+import time
+from dataclasses import dataclass, field
+
+@dataclass
+class Span:
+    trace_id: str
+    span_id: str
+    parent_id: str | None
+    service: str
+    operation: str
+    start_time: float = 0.0
+    end_time: float = 0.0
+    tags: dict = field(default_factory=dict)
+    status: str = "OK"
+
+    @property
+    def duration_ms(self) -> float:
+        return (self.end_time - self.start_time) * 1000
+
+class Tracer:
+    def __init__(self):
+        self.spans: list[Span] = []
+
+    def start_trace(self, service: str, operation: str) -> Span:
+        span = Span(
+            trace_id=str(uuid.uuid4())[:8],
+            span_id=str(uuid.uuid4())[:8],
+            parent_id=None,
+            service=service,
+            operation=operation,
+            start_time=time.time(),
+        )
+        self.spans.append(span)
+        return span
+
+    def start_span(self, parent: Span, service: str,
+                   operation: str) -> Span:
+        span = Span(
+            trace_id=parent.trace_id,
+            span_id=str(uuid.uuid4())[:8],
+            parent_id=parent.span_id,
+            service=service,
+            operation=operation,
+            start_time=time.time(),
+        )
+        self.spans.append(span)
+        return span
+
+    def end_span(self, span: Span):
+        span.end_time = time.time()
+
+    def print_trace(self, trace_id: str):
+        spans = [s for s in self.spans if s.trace_id == trace_id]
+        for span in spans:
+            indent = "  " if span.parent_id else ""
+            print(f"{indent}[{span.service}] {span.operation}"
+                  f" — {span.duration_ms:.1f}ms")
+
+# Simulate a request through microservices
+tracer = Tracer()
+
+root = tracer.start_trace("api-gateway", "GET /ride")
+time.sleep(0.01)
+
+auth = tracer.start_span(root, "auth-service", "validate_token")
+time.sleep(0.005)
+tracer.end_span(auth)
+
+match = tracer.start_span(root, "matching-service", "find_driver")
+time.sleep(0.02)
+tracer.end_span(match)
+
+price = tracer.start_span(root, "pricing-service", "calculate_fare")
+time.sleep(0.015)
+tracer.end_span(price)
+
+tracer.end_span(root)
+tracer.print_trace(root.trace_id)`}
+  java={`import java.util.*;
+import java.util.concurrent.*;
+
+public class Tracer {
+    private final List<Span> spans =
+        new CopyOnWriteArrayList<>();
+
+    public record Span(
+        String traceId, String spanId, String parentId,
+        String service, String operation,
+        long startNanos, long endNanos, String status
+    ) {
+        public double durationMs() {
+            return (endNanos - startNanos) / 1_000_000.0;
+        }
+    }
+
+    public Span startTrace(String service, String op) {
+        Span span = new Span(
+            UUID.randomUUID().toString().substring(0, 8),
+            UUID.randomUUID().toString().substring(0, 8),
+            null, service, op, System.nanoTime(), 0, "OK"
+        );
+        spans.add(span);
+        return span;
+    }
+
+    public Span startSpan(Span parent, String service, String op) {
+        Span span = new Span(
+            parent.traceId(),
+            UUID.randomUUID().toString().substring(0, 8),
+            parent.spanId(), service, op,
+            System.nanoTime(), 0, "OK"
+        );
+        spans.add(span);
+        return span;
+    }
+
+    public Span endSpan(Span span) {
+        return new Span(
+            span.traceId(), span.spanId(), span.parentId(),
+            span.service(), span.operation(),
+            span.startNanos(), System.nanoTime(), "OK"
+        );
+    }
+}`}
+  go={`type Span struct {
+    TraceID   string
+    SpanID    string
+    ParentID  string
+    Service   string
+    Operation string
+    StartTime time.Time
+    EndTime   time.Time
+    Status    string
+}
+
+type Tracer struct {
+    spans []Span
+    mu    sync.Mutex
+}
+
+func (t *Tracer) StartTrace(service, op string) *Span {
+    span := &Span{
+        TraceID:   uuid.New().String()[:8],
+        SpanID:    uuid.New().String()[:8],
+        Service:   service,
+        Operation: op,
+        StartTime: time.Now(),
+        Status:    "OK",
+    }
+    t.mu.Lock()
+    t.spans = append(t.spans, *span)
+    t.mu.Unlock()
+    return span
+}
+
+func (t *Tracer) StartSpan(parent *Span,
+        service, op string) *Span {
+    span := &Span{
+        TraceID:   parent.TraceID,
+        SpanID:    uuid.New().String()[:8],
+        ParentID:  parent.SpanID,
+        Service:   service,
+        Operation: op,
+        StartTime: time.Now(),
+    }
+    t.mu.Lock()
+    t.spans = append(t.spans, *span)
+    t.mu.Unlock()
+    return span
+}
+
+func (t *Tracer) EndSpan(span *Span) {
+    span.EndTime = time.Now()
+}`}
+  cpp={`struct Span {
+    std::string traceId, spanId, parentId;
+    std::string service, operation;
+    std::chrono::steady_clock::time_point start, end;
+
+    double durationMs() const {
+        return std::chrono::duration<double, std::milli>(
+            end - start).count();
+    }
+};
+
+class Tracer {
+    std::vector<Span> spans_;
+    std::mutex mu_;
+
+public:
+    Span startTrace(const std::string& service,
+                    const std::string& op) {
+        Span span{generateId(), generateId(), "",
+                  service, op,
+                  std::chrono::steady_clock::now(), {}};
+        std::lock_guard<std::mutex> lock(mu_);
+        spans_.push_back(span);
+        return span;
+    }
+
+    Span startSpan(const Span& parent,
+                   const std::string& service,
+                   const std::string& op) {
+        Span span{parent.traceId, generateId(),
+                  parent.spanId, service, op,
+                  std::chrono::steady_clock::now(), {}};
+        std::lock_guard<std::mutex> lock(mu_);
+        spans_.push_back(span);
+        return span;
+    }
+
+    void endSpan(Span& span) {
+        span.end = std::chrono::steady_clock::now();
+    }
+};`}
+/>
+
+---
+
+## ⚖️ Pros & Cons
+
+| Pros ✅ | Cons ❌ |
+|---------|---------|
+| End-to-end request visibility | Performance overhead from instrumentation |
+| Pinpoint latency bottlenecks | Storage cost for trace data |
+| Understand service dependencies | Requires instrumentation in every service |
+| Debug production issues fast | Sampling may miss rare issues |
+
+---
+
+## 🧩 When to Use
+
+- **Use when:** Microservice architectures, debugging latency issues, understanding service dependencies
+- **Avoid when:** Monolithic applications (standard logging/profiling suffices)
+
+---
+
+## 🔗 Related Concepts
+
+- [Microservices](/concepts/hld/microservices) — Tracing is essential in microservice architectures
+- [Circuit Breaker](/concepts/hld/circuit-breaker) — Traces reveal which services trigger circuit breakers
+- [API Design](/concepts/hld/api-design) — Trace context propagates via HTTP headers
+
+---
+
+## 📝 Quick Quiz
+
+**Q1: A user reports that checkout takes 8 seconds. You have 12 microservices involved. How do you find the bottleneck?**
+
+A) Add logging to each service  B) Look at the distributed trace for the request
+
+**Answer: B** — A distributed trace shows the exact duration of each span. You'll immediately see which service is taking 6 seconds of the total 8.

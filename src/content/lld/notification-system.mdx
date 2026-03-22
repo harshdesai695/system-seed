@@ -1,0 +1,345 @@
+# 🎯 Notification System Design
+
+Design an **Object-Oriented Notification System** that supports multiple channels (email, SMS, push), priority levels, user preferences, and templating.
+
+> **Real-world analogy:** A post office that routes mail based on destination and urgency — letters (email), telegrams (SMS), and express delivery (push notifications), each with their own delivery mechanism.
+
+---
+
+## 📋 Requirements
+
+### Functional
+- Send notifications via multiple channels (email, SMS, push)
+- User-configurable channel preferences
+- Priority levels (LOW, MEDIUM, HIGH, CRITICAL)
+- Notification templates with variable substitution
+- Retry failed notifications
+- Track delivery status
+
+---
+
+## 🔍 Class Design
+
+| Class | Responsibility |
+|-------|---------------|
+| `NotificationService` | Orchestrates notification delivery |
+| `Notification` | Data model for a single notification |
+| `NotificationChannel` | Interface for delivery channels |
+| `EmailChannel` / `SMSChannel` / `PushChannel` | Channel implementations |
+| `UserPreferences` | Per-user channel and frequency settings |
+| `Template` | Notification templates with placeholders |
+
+---
+
+## 💻 Code Example
+
+<CodeBlock
+  title="Notification System"
+  python={`from abc import ABC, abstractmethod
+from enum import Enum
+from dataclasses import dataclass, field
+from datetime import datetime
+from string import Template
+
+class Priority(Enum):
+    LOW = 0
+    MEDIUM = 1
+    HIGH = 2
+    CRITICAL = 3
+
+class Channel(Enum):
+    EMAIL = "email"
+    SMS = "sms"
+    PUSH = "push"
+
+class DeliveryStatus(Enum):
+    PENDING = "pending"
+    SENT = "sent"
+    FAILED = "failed"
+
+@dataclass
+class Notification:
+    notification_id: str
+    user_id: str
+    channel: Channel
+    subject: str
+    body: str
+    priority: Priority = Priority.MEDIUM
+    status: DeliveryStatus = DeliveryStatus.PENDING
+    created_at: datetime = field(default_factory=datetime.now)
+    attempts: int = 0
+
+# ═══════ CHANNEL INTERFACE (Strategy Pattern) ═══════
+class NotificationChannel(ABC):
+    @abstractmethod
+    def send(self, notification: Notification) -> bool: ...
+
+class EmailChannel(NotificationChannel):
+    def send(self, notification: Notification) -> bool:
+        print(f"📧 Email to {notification.user_id}: "
+              f"{notification.subject}")
+        return True  # Simulate success
+
+class SMSChannel(NotificationChannel):
+    def send(self, notification: Notification) -> bool:
+        print(f"📱 SMS to {notification.user_id}: "
+              f"{notification.body[:100]}")
+        return True
+
+class PushChannel(NotificationChannel):
+    def send(self, notification: Notification) -> bool:
+        print(f"🔔 Push to {notification.user_id}: "
+              f"{notification.subject}")
+        return True
+
+# ═══════ USER PREFERENCES ═══════
+@dataclass
+class UserPreferences:
+    user_id: str
+    enabled_channels: set[Channel] = field(
+        default_factory=lambda: {Channel.EMAIL, Channel.PUSH})
+    quiet_hours: tuple[int, int] = (22, 8)  # 10 PM - 8 AM
+    min_priority: Priority = Priority.LOW
+
+# ═══════ NOTIFICATION SERVICE ═══════
+class NotificationService:
+    MAX_RETRIES = 3
+
+    def __init__(self):
+        self._channels: dict[Channel, NotificationChannel] = {
+            Channel.EMAIL: EmailChannel(),
+            Channel.SMS: SMSChannel(),
+            Channel.PUSH: PushChannel(),
+        }
+        self._preferences: dict[str, UserPreferences] = {}
+        self._history: list[Notification] = []
+        self._templates: dict[str, str] = {}
+        self._counter = 0
+
+    def set_preferences(self, prefs: UserPreferences):
+        self._preferences[prefs.user_id] = prefs
+
+    def register_template(self, name: str, template: str):
+        self._templates[name] = template
+
+    def _render_template(self, name: str, **kwargs) -> str:
+        tmpl = self._templates.get(name, "$message")
+        return Template(tmpl).safe_substitute(**kwargs)
+
+    def send(self, user_id: str, subject: str, body: str,
+             priority: Priority = Priority.MEDIUM,
+             channels: list[Channel] | None = None):
+        prefs = self._preferences.get(
+            user_id, UserPreferences(user_id))
+
+        # Filter channels by user preferences
+        target_channels = channels or list(prefs.enabled_channels)
+        target_channels = [
+            ch for ch in target_channels
+            if ch in prefs.enabled_channels
+        ]
+
+        # Skip low-priority below user threshold
+        if priority.value < prefs.min_priority.value:
+            return
+
+        for channel in target_channels:
+            self._counter += 1
+            notification = Notification(
+                notification_id=f"N-{self._counter:06d}",
+                user_id=user_id,
+                channel=channel,
+                subject=subject,
+                body=body,
+                priority=priority,
+            )
+            self._deliver(notification)
+
+    def _deliver(self, notification: Notification):
+        channel = self._channels.get(notification.channel)
+        if not channel:
+            notification.status = DeliveryStatus.FAILED
+            return
+
+        for attempt in range(self.MAX_RETRIES):
+            notification.attempts = attempt + 1
+            if channel.send(notification):
+                notification.status = DeliveryStatus.SENT
+                break
+        else:
+            notification.status = DeliveryStatus.FAILED
+
+        self._history.append(notification)
+
+    def send_from_template(self, user_id: str,
+                           template_name: str,
+                           priority: Priority = Priority.MEDIUM,
+                           **kwargs):
+        body = self._render_template(template_name, **kwargs)
+        self.send(user_id, template_name, body, priority)
+
+# Usage
+service = NotificationService()
+
+service.set_preferences(UserPreferences(
+    "user1",
+    enabled_channels={Channel.EMAIL, Channel.PUSH},
+    min_priority=Priority.MEDIUM,
+))
+
+service.register_template("order_shipped",
+    "Your order $order_id has been shipped! "
+    "Track: $tracking_url")
+
+service.send("user1", "Welcome!", "Thanks for signing up!",
+             Priority.HIGH)
+
+service.send_from_template("user1", "order_shipped",
+    Priority.HIGH,
+    order_id="ORD-123",
+    tracking_url="https://track.example.com/123")`}
+  java={`public class NotificationService {
+    private final Map<Channel, NotificationChannel> channels;
+    private final Map<String, UserPreferences> preferences
+        = new ConcurrentHashMap<>();
+    private static final int MAX_RETRIES = 3;
+
+    public NotificationService() {
+        channels = Map.of(
+            Channel.EMAIL, new EmailChannel(),
+            Channel.SMS, new SMSChannel(),
+            Channel.PUSH, new PushChannel()
+        );
+    }
+
+    public void send(String userId, String subject,
+                     String body, Priority priority) {
+        UserPreferences prefs = preferences.getOrDefault(
+            userId, new UserPreferences(userId));
+
+        if (priority.ordinal() < prefs.getMinPriority().ordinal())
+            return;
+
+        for (Channel ch : prefs.getEnabledChannels()) {
+            var notification = new Notification(
+                userId, ch, subject, body, priority);
+            deliver(notification);
+        }
+    }
+
+    private void deliver(Notification notification) {
+        var channel = channels.get(notification.getChannel());
+        for (int i = 0; i < MAX_RETRIES; i++) {
+            if (channel.send(notification)) {
+                notification.setStatus(DeliveryStatus.SENT);
+                return;
+            }
+        }
+        notification.setStatus(DeliveryStatus.FAILED);
+    }
+}`}
+  go={`type NotificationService struct {
+    channels   map[Channel]NotificationChannel
+    preferences map[string]*UserPreferences
+    mu         sync.RWMutex
+}
+
+func (ns *NotificationService) Send(userID, subject,
+        body string, priority Priority) {
+    ns.mu.RLock()
+    prefs, ok := ns.preferences[userID]
+    ns.mu.RUnlock()
+
+    if !ok {
+        prefs = DefaultPreferences(userID)
+    }
+
+    if priority < prefs.MinPriority {
+        return
+    }
+
+    for _, ch := range prefs.EnabledChannels {
+        notification := &Notification{
+            UserID:   userID,
+            Channel:  ch,
+            Subject:  subject,
+            Body:     body,
+            Priority: priority,
+        }
+        ns.deliver(notification)
+    }
+}
+
+func (ns *NotificationService) deliver(n *Notification) {
+    channel, ok := ns.channels[n.Channel]
+    if !ok { return }
+
+    for i := 0; i < 3; i++ {
+        if channel.Send(n) {
+            n.Status = Sent
+            return
+        }
+    }
+    n.Status = Failed
+}`}
+  cpp={`class NotificationService {
+    std::map<Channel,
+        std::unique_ptr<NotificationChannel>> channels_;
+    std::map<std::string, UserPreferences> preferences_;
+
+public:
+    void send(const std::string& userId,
+              const std::string& subject,
+              const std::string& body, Priority priority) {
+        auto prefs = getPreferences(userId);
+        if (priority < prefs.minPriority) return;
+
+        for (auto ch : prefs.enabledChannels) {
+            Notification n{userId, ch, subject, body, priority};
+            deliver(n);
+        }
+    }
+
+private:
+    void deliver(Notification& n) {
+        auto it = channels_.find(n.channel);
+        if (it == channels_.end()) return;
+        for (int i = 0; i < 3; i++) {
+            if (it->second->send(n)) {
+                n.status = DeliveryStatus::SENT;
+                return;
+            }
+        }
+        n.status = DeliveryStatus::FAILED;
+    }
+};`}
+/>
+
+---
+
+## 📊 Design Patterns Used
+
+| Pattern | Where | Why |
+|---------|-------|-----|
+| **Strategy** | Channel implementations | Swap delivery mechanisms |
+| **Observer** | Event-triggered notifications | React to system events |
+| **Template Method** | Notification templates | Standardized message format |
+| **Decorator** | Channel wrappers (logging, retry) | Add cross-cutting concerns |
+
+---
+
+## 🔗 Related Concepts
+
+- [Message Queues](/concepts/hld/message-queues) — Async notification delivery
+- [Event-Driven Architecture](/concepts/hld/event-driven-architecture) — Events trigger notifications
+- [Rate Limiting](/concepts/hld/rate-limiting) — Prevent notification spam
+
+---
+
+## 📝 Quick Quiz
+
+**Q1: A user has quiet hours set from 10 PM to 8 AM. A HIGH priority notification arrives at 11 PM. Should it be sent?**
+
+A) Yes, HIGH priority overrides quiet hours  B) It depends on system design
+
+**Answer: B** — This is a design decision. A common approach: deliver CRITICAL immediately, queue HIGH for the end of quiet hours, and drop LOW during quiet hours. Define the policy explicitly.

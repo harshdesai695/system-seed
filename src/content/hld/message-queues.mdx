@@ -1,0 +1,265 @@
+# 🎯 What are Message Queues?
+
+**Message Queues** are a communication mechanism that allows different parts of a system to exchange information asynchronously. Instead of talking directly, services drop messages into a queue, and other services pick them up when ready.
+
+> **Real-world analogy:** Think of a **restaurant kitchen**. Waiters don't cook food themselves — they write orders on tickets and place them on a **ticket rail** (the queue). Cooks pick up tickets when they're ready. The waiter doesn't wait in the kitchen; they go serve other tables. If a cook is busy, tickets just stack up and are processed in order.
+
+---
+
+## 🌍 Real-World Example
+
+**Uber** uses **Apache Kafka** to handle millions of events per second. When a rider requests a ride, the event goes into a message queue. Multiple services consume from this queue: one matches drivers, another calculates pricing, another tracks analytics — all independently and at their own pace.
+
+---
+
+## 🔍 How Does It Work?
+
+### Core Components
+
+| Component | Role | Analogy |
+|-----------|------|---------|
+| **Producer** | Creates and sends messages | Waiter placing orders |
+| **Queue/Topic** | Stores messages in order | The ticket rail |
+| **Consumer** | Reads and processes messages | Cook picking up tickets |
+| **Broker** | Manages queues and delivery | The kitchen manager |
+
+### Message Flow
+
+1. **Producer** creates a message (e.g., "new order placed")
+2. Message is sent to the **broker** (Kafka, RabbitMQ)
+3. Broker stores the message in the appropriate **queue/topic**
+4. **Consumer** pulls the message and processes it
+5. Consumer **acknowledges** successful processing
+
+---
+
+## 📊 Queue vs Topic (Pub/Sub)
+
+| Feature | Queue (Point-to-Point) | Topic (Pub/Sub) |
+|---------|:---:|:---:|
+| Consumers | One consumer gets each message | All subscribers get each message |
+| Use case | Task distribution | Event broadcasting |
+| Example | Processing orders | Notifying multiple services |
+
+---
+
+## 💻 Code Example: Producer & Consumer
+
+<CodeBlock
+  title="Message Queue Pattern"
+  java={`// Simple in-memory message queue
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+
+public class MessageQueue<T> {
+    private final BlockingQueue<T> queue = new LinkedBlockingQueue<>();
+
+    // Producer: Add message to queue
+    public void publish(T message) {
+        queue.offer(message);
+        System.out.println("Published: " + message);
+    }
+
+    // Consumer: Take message from queue (blocks until available)
+    public T consume() throws InterruptedException {
+        T message = queue.take();
+        System.out.println("Consumed: " + message);
+        return message;
+    }
+
+    public int size() { return queue.size(); }
+}
+
+// Usage with producer and consumer threads
+MessageQueue<String> queue = new MessageQueue<>();
+
+// Producer thread
+new Thread(() -> {
+    queue.publish("Order #1001");
+    queue.publish("Order #1002");
+}).start();
+
+// Consumer thread
+new Thread(() -> {
+    while (true) {
+        String order = queue.consume();
+        processOrder(order);
+    }
+}).start();`}
+  python={`import queue
+import threading
+import time
+
+class MessageQueue:
+    def __init__(self):
+        self._queue = queue.Queue()
+
+    def publish(self, message: str):
+        self._queue.put(message)
+        print(f"Published: {message}")
+
+    def consume(self) -> str:
+        message = self._queue.get()  # Blocks until available
+        print(f"Consumed: {message}")
+        return message
+
+    @property
+    def size(self) -> int:
+        return self._queue.qsize()
+
+# Usage
+mq = MessageQueue()
+
+# Producer
+def producer():
+    for i in range(5):
+        mq.publish(f"Order #{1001 + i}")
+        time.sleep(0.1)
+
+# Consumer
+def consumer():
+    while True:
+        order = mq.consume()
+        print(f"Processing: {order}")
+        time.sleep(0.5)  # Simulate work
+
+threading.Thread(target=producer, daemon=True).start()
+threading.Thread(target=consumer, daemon=True).start()`}
+  go={`type MessageQueue struct {
+    messages chan string
+}
+
+func NewMessageQueue(bufferSize int) *MessageQueue {
+    return &MessageQueue{messages: make(chan string, bufferSize)}
+}
+
+// Producer
+func (mq *MessageQueue) Publish(message string) {
+    mq.messages <- message
+    fmt.Printf("Published: %s\\n", message)
+}
+
+// Consumer
+func (mq *MessageQueue) Consume() string {
+    msg := <-mq.messages // Blocks until available
+    fmt.Printf("Consumed: %s\\n", msg)
+    return msg
+}
+
+// Usage
+func main() {
+    mq := NewMessageQueue(100)
+
+    // Producer goroutine
+    go func() {
+        for i := 0; i < 5; i++ {
+            mq.Publish(fmt.Sprintf("Order #%d", 1001+i))
+        }
+    }()
+
+    // Consumer goroutine
+    go func() {
+        for {
+            order := mq.Consume()
+            fmt.Printf("Processing: %s\\n", order)
+        }
+    }()
+}`}
+  cpp={`#include <queue>
+#include <mutex>
+#include <condition_variable>
+#include <string>
+
+class MessageQueue {
+    std::queue<std::string> queue;
+    std::mutex mu;
+    std::condition_variable cv;
+
+public:
+    void publish(const std::string& message) {
+        std::lock_guard<std::mutex> lock(mu);
+        queue.push(message);
+        cv.notify_one();
+        std::cout << "Published: " << message << std::endl;
+    }
+
+    std::string consume() {
+        std::unique_lock<std::mutex> lock(mu);
+        cv.wait(lock, [this] { return !queue.empty(); });
+        std::string msg = queue.front();
+        queue.pop();
+        std::cout << "Consumed: " << msg << std::endl;
+        return msg;
+    }
+};`}
+/>
+
+---
+
+## 📊 Popular Message Queues Compared
+
+| Feature | Kafka | RabbitMQ | Amazon SQS |
+|---------|:---:|:---:|:---:|
+| **Throughput** | Millions/sec | Thousands/sec | Thousands/sec |
+| **Persistence** | Disk (log-based) | Memory + Disk | Cloud managed |
+| **Ordering** | Per partition | Per queue | Best effort |
+| **Replay** | Yes (consumers can re-read) | No (message deleted after ack) | No |
+| **Best for** | Event streaming, logs | Task queues, routing | Simple cloud queues |
+
+---
+
+## ⚖️ Pros & Cons
+
+| Pros ✅ | Cons ❌ |
+|---------|---------|
+| Decouples services | Added complexity |
+| Handles traffic spikes (buffering) | Message ordering challenges |
+| Retry on failure | Potential message duplication |
+| Async processing | Debugging is harder |
+| Scalable independently | Latency (not real-time) |
+
+---
+
+## 🧩 When to Use / When NOT to Use
+
+**Use message queues when:**
+- Services need to communicate asynchronously
+- You need to handle traffic spikes (buffer requests)
+- Tasks can be processed with some delay (email sending, image processing)
+- You want to decouple services for independent scaling
+
+**Don't use when:**
+- You need synchronous, real-time responses
+- The system is simple enough for direct API calls
+- Message ordering is critical and hard to guarantee
+
+---
+
+## 🔗 Related Concepts
+
+- [Event-Driven Architecture](/concepts/hld/event-driven-architecture) — Queues are the backbone of event-driven systems
+- [Microservices](/concepts/hld/microservices) — Queues enable loose coupling between microservices
+- [Rate Limiting](/concepts/hld/rate-limiting) — Queues can act as natural rate limiters
+- [Scalability](/concepts/hld/scalability) — Queues enable independent scaling of producers and consumers
+
+---
+
+## 📝 Quick Quiz
+
+**Q1: Your system sends email confirmations after a purchase. Should the API wait for the email to be sent before responding?**
+
+A) Yes — the user needs to know the email was sent
+B) No — publish to a queue and respond immediately
+
+**Answer: B** — Email sending is not time-critical. Publishing to a queue and returning immediately gives the user a fast response. The email service processes the queue independently.
+
+**Q2: What's the main difference between a queue and a topic?**
+
+A) Queues are faster
+B) In a queue, each message is consumed by one consumer. In a topic, all subscribers get every message.
+
+**Answer: B** — Queues distribute messages, topics broadcast them.
+
+---
+
+*Sources: Apache Kafka Documentation, RabbitMQ Tutorials, Uber Engineering Blog, AWS SQS Documentation*

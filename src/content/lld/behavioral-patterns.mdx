@@ -1,0 +1,318 @@
+# 🎯 What are Behavioral Design Patterns?
+
+**Behavioral patterns** define how objects communicate and interact with each other. They focus on the **assignment of responsibilities** between objects and the **patterns of communication** between them.
+
+> **Real-world analogy:** Think of a **restaurant**. The customer (client) talks to the waiter (mediator), not the chef directly. The waiter takes the order (command pattern), the kitchen processes it in sequence (chain of responsibility), and the bell rings when food is ready (observer). Each person has a specific role and communication pattern.
+
+---
+
+## 🌍 Key Behavioral Patterns
+
+| Pattern | Purpose | Real-World Example |
+|---------|---------|-------------------|
+| **Observer** | Notify dependents of state changes | Newsletter subscription |
+| **Strategy** | Swap algorithms at runtime | GPS routing (fastest/shortest) |
+| **Command** | Encapsulate requests as objects | Undo/redo in text editors |
+| **State** | Change behavior based on internal state | Vending machine states |
+| **Template Method** | Define algorithm skeleton, defer steps | Cooking recipes |
+| **Iterator** | Sequential access without exposing internals | Playlist navigation |
+| **Mediator** | Centralize complex communication | Air traffic control |
+| **Chain of Responsibility** | Pass request along a chain of handlers | Customer support escalation |
+
+---
+
+## 🔍 Pattern Deep Dives
+
+### 1. Observer Pattern
+One-to-many dependency — when one object changes, all dependents are notified.
+
+### 2. Strategy Pattern
+Define a family of algorithms, make them interchangeable.
+
+### 3. Command Pattern
+Encapsulate a request as an object, enabling undo, queue, and logging.
+
+---
+
+## 💻 Code Example: Observer, Strategy, and Command
+
+<CodeBlock
+  title="Behavioral Patterns"
+  python={`from abc import ABC, abstractmethod
+from typing import List
+
+# ═══════════════ OBSERVER PATTERN ═══════════════
+class EventEmitter:
+    def __init__(self):
+        self._listeners: dict[str, List] = {}
+
+    def on(self, event: str, callback):
+        self._listeners.setdefault(event, []).append(callback)
+
+    def emit(self, event: str, data=None):
+        for cb in self._listeners.get(event, []):
+            cb(data)
+
+# Usage
+emitter = EventEmitter()
+emitter.on("order_placed", lambda d: print(f"📧 Email: {d}"))
+emitter.on("order_placed", lambda d: print(f"📦 Inventory: {d}"))
+emitter.emit("order_placed", "Order #123")
+
+# ═══════════════ STRATEGY PATTERN ═══════════════
+class SortStrategy(ABC):
+    @abstractmethod
+    def sort(self, data: list) -> list: ...
+
+class QuickSort(SortStrategy):
+    def sort(self, data: list) -> list:
+        if len(data) <= 1: return data
+        pivot = data[0]
+        left = [x for x in data[1:] if x <= pivot]
+        right = [x for x in data[1:] if x > pivot]
+        return self.sort(left) + [pivot] + self.sort(right)
+
+class MergeSort(SortStrategy):
+    def sort(self, data: list) -> list:
+        if len(data) <= 1: return data
+        mid = len(data) // 2
+        left = self.sort(data[:mid])
+        right = self.sort(data[mid:])
+        return self._merge(left, right)
+
+    def _merge(self, a, b):
+        result, i, j = [], 0, 0
+        while i < len(a) and j < len(b):
+            if a[i] <= b[j]: result.append(a[i]); i += 1
+            else: result.append(b[j]); j += 1
+        return result + a[i:] + b[j:]
+
+class Sorter:
+    def __init__(self, strategy: SortStrategy):
+        self._strategy = strategy
+
+    def set_strategy(self, strategy: SortStrategy):
+        self._strategy = strategy
+
+    def sort(self, data: list) -> list:
+        return self._strategy.sort(data)
+
+# ═══════════════ COMMAND PATTERN ═══════════════
+class Command(ABC):
+    @abstractmethod
+    def execute(self): ...
+    @abstractmethod
+    def undo(self): ...
+
+class InsertTextCommand(Command):
+    def __init__(self, doc: list, pos: int, text: str):
+        self.doc, self.pos, self.text = doc, pos, text
+
+    def execute(self):
+        self.doc.insert(self.pos, self.text)
+
+    def undo(self):
+        self.doc.pop(self.pos)
+
+class CommandHistory:
+    def __init__(self):
+        self._history: List[Command] = []
+
+    def execute(self, cmd: Command):
+        cmd.execute()
+        self._history.append(cmd)
+
+    def undo(self):
+        if self._history:
+            self._history.pop().undo()`}
+  java={`// ═══════ OBSERVER ═══════
+interface Observer { void update(String event, Object data); }
+
+class EventEmitter {
+    private final Map<String, List<Observer>> listeners = new HashMap<>();
+
+    public void on(String event, Observer observer) {
+        listeners.computeIfAbsent(event, k -> new ArrayList<>())
+                 .add(observer);
+    }
+
+    public void emit(String event, Object data) {
+        for (Observer obs : listeners.getOrDefault(event, List.of())) {
+            obs.update(event, data);
+        }
+    }
+}
+
+// ═══════ STRATEGY ═══════
+interface SortStrategy<T extends Comparable<T>> {
+    List<T> sort(List<T> data);
+}
+
+class QuickSortStrategy<T extends Comparable<T>>
+        implements SortStrategy<T> {
+    public List<T> sort(List<T> data) {
+        if (data.size() <= 1) return data;
+        T pivot = data.get(0);
+        List<T> less = new ArrayList<>(), greater = new ArrayList<>();
+        for (int i = 1; i < data.size(); i++) {
+            if (data.get(i).compareTo(pivot) <= 0)
+                less.add(data.get(i));
+            else greater.add(data.get(i));
+        }
+        List<T> result = new ArrayList<>(sort(less));
+        result.add(pivot);
+        result.addAll(sort(greater));
+        return result;
+    }
+}
+
+class Sorter<T extends Comparable<T>> {
+    private SortStrategy<T> strategy;
+    public Sorter(SortStrategy<T> strategy) {
+        this.strategy = strategy;
+    }
+    public void setStrategy(SortStrategy<T> s) { strategy = s; }
+    public List<T> sort(List<T> data) { return strategy.sort(data); }
+}
+
+// ═══════ COMMAND ═══════
+interface Command {
+    void execute();
+    void undo();
+}
+
+class InsertCommand implements Command {
+    private final List<String> doc;
+    private final int pos;
+    private final String text;
+    InsertCommand(List<String> doc, int pos, String text) {
+        this.doc = doc; this.pos = pos; this.text = text;
+    }
+    public void execute() { doc.add(pos, text); }
+    public void undo() { doc.remove(pos); }
+}`}
+  go={`// ═══════ OBSERVER ═══════
+type Observer func(data interface{})
+
+type EventEmitter struct {
+    listeners map[string][]Observer
+}
+
+func (e *EventEmitter) On(event string, obs Observer) {
+    if e.listeners == nil {
+        e.listeners = make(map[string][]Observer)
+    }
+    e.listeners[event] = append(e.listeners[event], obs)
+}
+
+func (e *EventEmitter) Emit(event string, data interface{}) {
+    for _, obs := range e.listeners[event] {
+        obs(data)
+    }
+}
+
+// ═══════ STRATEGY ═══════
+type SortStrategy interface {
+    Sort(data []int) []int
+}
+
+type QuickSort struct{}
+
+func (q QuickSort) Sort(data []int) []int {
+    if len(data) <= 1 { return data }
+    pivot := data[0]
+    var left, right []int
+    for _, v := range data[1:] {
+        if v <= pivot { left = append(left, v) } else {
+            right = append(right, v)
+        }
+    }
+    result := q.Sort(left)
+    result = append(result, pivot)
+    return append(result, q.Sort(right)...)
+}
+
+type Sorter struct {
+    strategy SortStrategy
+}
+
+func (s *Sorter) Sort(data []int) []int {
+    return s.strategy.Sort(data)
+}`}
+  cpp={`// ═══════ OBSERVER ═══════
+class EventEmitter {
+    std::map<std::string,
+        std::vector<std::function<void(const std::string&)>>> listeners_;
+public:
+    void on(const std::string& event,
+            std::function<void(const std::string&)> cb) {
+        listeners_[event].push_back(std::move(cb));
+    }
+    void emit(const std::string& event, const std::string& data) {
+        for (auto& cb : listeners_[event]) cb(data);
+    }
+};
+
+// ═══════ STRATEGY ═══════
+class SortStrategy {
+public:
+    virtual ~SortStrategy() = default;
+    virtual std::vector<int> sort(std::vector<int> data) = 0;
+};
+
+class QuickSortStrategy : public SortStrategy {
+public:
+    std::vector<int> sort(std::vector<int> data) override {
+        if (data.size() <= 1) return data;
+        int pivot = data[0];
+        std::vector<int> left, right;
+        for (size_t i = 1; i < data.size(); i++) {
+            if (data[i] <= pivot) left.push_back(data[i]);
+            else right.push_back(data[i]);
+        }
+        auto result = sort(left);
+        result.push_back(pivot);
+        auto r = sort(right);
+        result.insert(result.end(), r.begin(), r.end());
+        return result;
+    }
+};
+
+// ═══════ COMMAND ═══════
+class Command {
+public:
+    virtual ~Command() = default;
+    virtual void execute() = 0;
+    virtual void undo() = 0;
+};`}
+/>
+
+---
+
+## ⚖️ When to Use Each Pattern
+
+| Pattern | Use When | Avoid When |
+|---------|----------|------------|
+| **Observer** | Multiple objects need to react to changes | Only one dependent exists |
+| **Strategy** | Multiple algorithms for the same task | Only one algorithm ever needed |
+| **Command** | Need undo/redo, queueing, logging | Simple direct method calls suffice |
+| **State** | Object behavior depends on its state | Few states with simple logic |
+| **Iterator** | Need uniform traversal of collections | Direct indexing works fine |
+
+---
+
+## 🔗 Related Concepts
+
+- [Creational Patterns](/concepts/lld/creational-patterns) — How objects are created
+- [Structural Patterns](/concepts/lld/structural-patterns) — How objects are composed
+- [SOLID Principles](/concepts/lld/solid-principles) — Foundation for all design patterns
+
+---
+
+## 📝 Quick Quiz
+
+**Q1: You're building a text editor with undo/redo. Which behavioral pattern is most appropriate?**
+
+A) Observer  B) Command  C) Strategy
+
+**Answer: B** — The Command pattern encapsulates each action as an object with `execute()` and `undo()` methods, perfect for undo/redo stacks.

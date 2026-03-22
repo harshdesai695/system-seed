@@ -1,0 +1,171 @@
+# 🎯 What is a Checksum?
+
+A **checksum** is a small fixed-size value derived from a block of data, used to detect errors or corruption during transmission or storage. If the data changes even slightly, the checksum changes dramatically.
+
+> **Real-world analogy:** Imagine mailing a 100-page manuscript. You write "Total words: 23,847" on the envelope. When the recipient counts the words and gets 23,847, they know the manuscript arrived intact. If the count is different, something was lost or changed. That number is a checksum.
+
+---
+
+## 🌍 Real-World Example
+
+**Amazon S3** uses MD5 checksums for every object uploaded. When you upload a file, S3 computes an MD5 hash and compares it with the one you sent. If they don't match, the upload is rejected, preventing corrupted data from being stored.
+
+---
+
+## 🔍 How Checksums Work
+
+1. **Sender** computes checksum of original data using a hash function
+2. **Sends** data + checksum to recipient
+3. **Recipient** computes checksum of received data using the same function
+4. **Compares** — if checksums match, data is intact ✅; if not, data is corrupt ❌
+
+---
+
+## 📊 Common Checksum Algorithms
+
+| Algorithm | Output Size | Speed | Collision Resistance | Use Case |
+|-----------|------------|-------|---------------------|----------|
+| **CRC32** | 32 bits | Very Fast | Low | Network packets, ZIP files |
+| **MD5** | 128 bits | Fast | Broken (not secure) | File verification |
+| **SHA-1** | 160 bits | Fast | Broken (not secure) | Git commits |
+| **SHA-256** | 256 bits | Moderate | Strong | Blockchain, TLS |
+| **xxHash** | 64/128 bits | Extremely Fast | Moderate | Database checksums |
+
+---
+
+## 💻 Code Example: Checksum Verification
+
+<CodeBlock
+  title="File Integrity Verification"
+  python={`import hashlib
+
+def compute_checksum(data: bytes, algorithm: str = "sha256") -> str:
+    h = hashlib.new(algorithm)
+    h.update(data)
+    return h.hexdigest()
+
+def verify_integrity(data: bytes, expected: str,
+                     algorithm: str = "sha256") -> bool:
+    actual = compute_checksum(data, algorithm)
+    return actual == expected
+
+def file_checksum(filepath: str) -> str:
+    sha256 = hashlib.sha256()
+    with open(filepath, "rb") as f:
+        for chunk in iter(lambda: f.read(8192), b""):
+            sha256.update(chunk)
+    return sha256.hexdigest()
+
+# Usage
+data = b"Hello, distributed system!"
+checksum = compute_checksum(data)
+print(f"Checksum: {checksum}")
+print(f"Valid: {verify_integrity(data, checksum)}")       # True
+print(f"Tampered: {verify_integrity(b'Tampered', checksum)}")  # False`}
+  java={`import java.security.MessageDigest;
+import java.io.*;
+
+public class ChecksumUtil {
+    public static String computeChecksum(byte[] data,
+            String algorithm) throws Exception {
+        MessageDigest md = MessageDigest.getInstance(algorithm);
+        byte[] hash = md.digest(data);
+        StringBuilder hex = new StringBuilder();
+        for (byte b : hash) {
+            hex.append(String.format("%02x", b));
+        }
+        return hex.toString();
+    }
+
+    public static String fileChecksum(String path) throws Exception {
+        MessageDigest md = MessageDigest.getInstance("SHA-256");
+        try (InputStream is = new FileInputStream(path)) {
+            byte[] buffer = new byte[8192];
+            int bytesRead;
+            while ((bytesRead = is.read(buffer)) != -1) {
+                md.update(buffer, 0, bytesRead);
+            }
+        }
+        byte[] hash = md.digest();
+        StringBuilder hex = new StringBuilder();
+        for (byte b : hash) hex.append(String.format("%02x", b));
+        return hex.toString();
+    }
+
+    public static boolean verify(byte[] data, String expected)
+            throws Exception {
+        return computeChecksum(data, "SHA-256").equals(expected);
+    }
+}`}
+  go={`func computeChecksum(data []byte) string {
+    h := sha256.Sum256(data)
+    return hex.EncodeToString(h[:])
+}
+
+func fileChecksum(path string) (string, error) {
+    f, err := os.Open(path)
+    if err != nil {
+        return "", err
+    }
+    defer f.Close()
+
+    h := sha256.New()
+    if _, err := io.Copy(h, f); err != nil {
+        return "", err
+    }
+    return hex.EncodeToString(h.Sum(nil)), nil
+}
+
+func verify(data []byte, expected string) bool {
+    return computeChecksum(data) == expected
+}`}
+  cpp={`#include <openssl/sha.h>
+#include <sstream>
+#include <iomanip>
+#include <fstream>
+
+std::string computeChecksum(const std::string& data) {
+    unsigned char hash[SHA256_DIGEST_LENGTH];
+    SHA256(reinterpret_cast<const unsigned char*>(data.c_str()),
+           data.size(), hash);
+    std::ostringstream oss;
+    for (int i = 0; i < SHA256_DIGEST_LENGTH; i++) {
+        oss << std::hex << std::setw(2) << std::setfill('0')
+            << (int)hash[i];
+    }
+    return oss.str();
+}
+
+bool verify(const std::string& data,
+            const std::string& expected) {
+    return computeChecksum(data) == expected;
+}`}
+/>
+
+---
+
+## ⚖️ Pros & Cons
+
+| Pros ✅ | Cons ❌ |
+|---------|---------|
+| Detects data corruption | Cannot repair data |
+| Fast to compute | Hash collisions possible (rare) |
+| Small overhead | Adds processing time |
+
+---
+
+## 🔗 Related Concepts
+
+- [Database Replication](/concepts/hld/database-replication) — Checksums verify replica consistency
+- [Distributed Systems](/concepts/hld/distributed-systems) — Checksums ensure data integrity across nodes
+- [CDN](/concepts/hld/cdn) — CDNs use checksums to validate cached content
+
+---
+
+## 📝 Quick Quiz
+
+**Q1: You download a 2GB file whose published SHA-256 hash is `abc123...`. Your computed hash is `def456...`. What happened?**
+
+A) Nothing, hashes can differ  B) The file was corrupted or tampered with during download
+
+**Answer: B** — A different checksum means the file's content changed. Re-download and verify again.

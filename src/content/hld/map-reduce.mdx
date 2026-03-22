@@ -1,0 +1,269 @@
+# 🎯 What is MapReduce?
+
+**MapReduce** is a programming model for processing and generating large datasets in parallel across a distributed cluster. It breaks work into two phases: **Map** (transform & filter data) and **Reduce** (aggregate results).
+
+> **Real-world analogy:** Imagine counting votes in an election across 50 states. Each state **maps** — counts its own ballots independently. Then a central office **reduces** — adds up all 50 state totals to get the final result. That's MapReduce.
+
+---
+
+## 🌍 Real-World Example
+
+**Google** invented MapReduce to build their search index. They needed to process petabytes of web pages — crawling, parsing, indexing. **Hadoop** later made this available as open source, powering analytics at Yahoo, Facebook, and LinkedIn.
+
+---
+
+## 🔍 How MapReduce Works
+
+### Three Phases
+
+1. **Map Phase** — Each worker processes a chunk of input data and emits key-value pairs
+2. **Shuffle & Sort** — Framework groups all values by key and distributes to reducers
+3. **Reduce Phase** — Each reducer aggregates values for a key into final output
+
+### Example: Word Count
+
+```
+Input:  ["hello world", "hello mapreduce", "world hello"]
+
+Map Output:
+  → (hello, 1), (world, 1), (hello, 1), (mapreduce, 1), (world, 1), (hello, 1)
+
+Shuffle & Sort:
+  → hello: [1, 1, 1]
+  → world: [1, 1]
+  → mapreduce: [1]
+
+Reduce Output:
+  → hello: 3, world: 2, mapreduce: 1
+```
+
+---
+
+## 📊 MapReduce vs Modern Alternatives
+
+| Feature | MapReduce | Apache Spark | Apache Flink |
+|---------|-----------|-------------|--------------|
+| **Processing** | Batch only | Batch + Interactive | Batch + Stream |
+| **Speed** | Disk-based (slower) | In-memory (100x faster) | In-memory |
+| **Ease of Use** | Low-level API | High-level API | High-level API |
+| **Fault Tolerance** | Re-execute failed tasks | RDD lineage | Checkpointing |
+| **Best For** | Simple ETL pipelines | Complex analytics | Real-time processing |
+
+---
+
+## 💻 Code Example: MapReduce Word Count
+
+<CodeBlock
+  title="MapReduce Word Count"
+  python={`from collections import defaultdict
+from concurrent.futures import ProcessPoolExecutor
+from typing import List, Tuple
+
+# --- MAP PHASE ---
+def mapper(document: str) -> List[Tuple[str, int]]:
+    """Emit (word, 1) for each word in the document."""
+    words = document.lower().split()
+    return [(word, 1) for word in words]
+
+# --- SHUFFLE PHASE ---
+def shuffle(mapped: List[List[Tuple[str, int]]]) -> dict:
+    """Group all values by key."""
+    groups = defaultdict(list)
+    for pairs in mapped:
+        for key, value in pairs:
+            groups[key].append(value)
+    return dict(groups)
+
+# --- REDUCE PHASE ---
+def reducer(key: str, values: List[int]) -> Tuple[str, int]:
+    """Sum all values for a key."""
+    return (key, sum(values))
+
+# --- MAPREDUCE ORCHESTRATOR ---
+def map_reduce(documents: List[str]) -> dict:
+    # 1. Map (parallel)
+    with ProcessPoolExecutor() as executor:
+        mapped = list(executor.map(mapper, documents))
+
+    # 2. Shuffle
+    shuffled = shuffle(mapped)
+
+    # 3. Reduce
+    results = {}
+    for key, values in shuffled.items():
+        word, count = reducer(key, values)
+        results[word] = count
+
+    return results
+
+docs = [
+    "the cat sat on the mat",
+    "the dog sat on the log",
+    "the cat and the dog",
+]
+print(map_reduce(docs))
+# {'the': 6, 'cat': 2, 'sat': 2, 'on': 2, ...}`}
+  java={`import java.util.*;
+import java.util.concurrent.*;
+import java.util.stream.*;
+
+public class MapReduce {
+
+    // MAP: Emit (word, 1) pairs
+    static List<Map.Entry<String, Integer>> map(String doc) {
+        return Arrays.stream(doc.toLowerCase().split("\\\\s+"))
+            .map(w -> Map.entry(w, 1))
+            .collect(Collectors.toList());
+    }
+
+    // SHUFFLE: Group by key
+    static Map<String, List<Integer>> shuffle(
+            List<List<Map.Entry<String, Integer>>> mapped) {
+        Map<String, List<Integer>> groups = new HashMap<>();
+        for (var pairs : mapped) {
+            for (var pair : pairs) {
+                groups.computeIfAbsent(pair.getKey(),
+                    k -> new ArrayList<>()).add(pair.getValue());
+            }
+        }
+        return groups;
+    }
+
+    // REDUCE: Sum values
+    static int reduce(List<Integer> values) {
+        return values.stream().mapToInt(Integer::intValue).sum();
+    }
+
+    public static Map<String, Integer> mapReduce(List<String> docs)
+            throws Exception {
+        ExecutorService pool = Executors.newFixedThreadPool(4);
+        List<Future<List<Map.Entry<String, Integer>>>> futures =
+            docs.stream()
+                .map(doc -> pool.submit(() -> map(doc)))
+                .collect(Collectors.toList());
+
+        List<List<Map.Entry<String, Integer>>> mapped = new ArrayList<>();
+        for (var f : futures) mapped.add(f.get());
+        pool.shutdown();
+
+        Map<String, List<Integer>> shuffled = shuffle(mapped);
+        Map<String, Integer> result = new HashMap<>();
+        shuffled.forEach((k, v) -> result.put(k, reduce(v)));
+        return result;
+    }
+}`}
+  go={`func mapper(doc string) []Pair {
+    words := strings.Fields(strings.ToLower(doc))
+    pairs := make([]Pair, len(words))
+    for i, w := range words {
+        pairs[i] = Pair{w, 1}
+    }
+    return pairs
+}
+
+func shuffle(mapped [][]Pair) map[string][]int {
+    groups := make(map[string][]int)
+    for _, pairs := range mapped {
+        for _, p := range pairs {
+            groups[p.Key] = append(groups[p.Key], p.Value)
+        }
+    }
+    return groups
+}
+
+func reducer(values []int) int {
+    sum := 0
+    for _, v := range values {
+        sum += v
+    }
+    return sum
+}
+
+func mapReduce(docs []string) map[string]int {
+    var wg sync.WaitGroup
+    mapped := make([][]Pair, len(docs))
+
+    for i, doc := range docs {
+        wg.Add(1)
+        go func(i int, doc string) {
+            defer wg.Done()
+            mapped[i] = mapper(doc)
+        }(i, doc)
+    }
+    wg.Wait()
+
+    shuffled := shuffle(mapped)
+    result := make(map[string]int)
+    for key, values := range shuffled {
+        result[key] = reducer(values)
+    }
+    return result
+}`}
+  cpp={`using Pair = std::pair<std::string, int>;
+
+std::vector<Pair> mapper(const std::string& doc) {
+    std::vector<Pair> pairs;
+    std::istringstream iss(doc);
+    std::string word;
+    while (iss >> word) {
+        std::transform(word.begin(), word.end(),
+                       word.begin(), ::tolower);
+        pairs.emplace_back(word, 1);
+    }
+    return pairs;
+}
+
+std::map<std::string, int> mapReduce(
+        const std::vector<std::string>& docs) {
+    // Map phase (could use std::async for parallelism)
+    std::vector<std::vector<Pair>> mapped;
+    for (const auto& doc : docs) {
+        mapped.push_back(mapper(doc));
+    }
+
+    // Shuffle & Reduce
+    std::map<std::string, int> result;
+    for (const auto& pairs : mapped) {
+        for (const auto& [word, count] : pairs) {
+            result[word] += count;
+        }
+    }
+    return result;
+}`}
+/>
+
+---
+
+## ⚖️ Pros & Cons
+
+| Pros ✅ | Cons ❌ |
+|---------|---------|
+| Processes massive datasets | High latency (batch only) |
+| Automatic parallelization | Not suited for iterative algorithms |
+| Built-in fault tolerance | Disk I/O bottleneck between stages |
+| Linearly scalable | Overkill for small datasets |
+
+---
+
+## 🧩 When to Use
+
+- **Use when:** Processing terabytes/petabytes of data, log analysis, building search indexes, ETL pipelines
+- **Avoid when:** Low-latency queries, iterative algorithms (ML training), real-time stream processing
+
+---
+
+## 🔗 Related Concepts
+
+- [Distributed Systems](/concepts/hld/distributed-systems) — MapReduce runs on distributed clusters
+- [Database Sharding](/concepts/hld/database-sharding) — Data partitioning across nodes
+- [Event-Driven Architecture](/concepts/hld/event-driven-architecture) — Stream processing alternative
+
+---
+
+## 📝 Quick Quiz
+
+**Q1: You need to count the frequency of each URL in 10TB of web server logs. Which approach works best?**
+
+A) Single-threaded script  B) MapReduce across a cluster
+
+**Answer: B** — MapReduce can distribute the 10TB across hundreds of machines, with each mapper processing a chunk and reducers aggregating counts per URL.

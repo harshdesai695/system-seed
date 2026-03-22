@@ -1,0 +1,226 @@
+# 🎯 What is Microservices Architecture?
+
+**Microservices Architecture** breaks a large application into small, independent services that each handle one specific business function, communicate via APIs, and can be developed, deployed, and scaled independently.
+
+> **Real-world analogy:** Think of a **food court** vs a **single restaurant**. A single restaurant (monolith) has one kitchen doing everything — pizza, sushi, burgers. If the pizza oven breaks, the whole kitchen stops. A food court (microservices) has separate vendors: one for pizza, one for sushi, one for burgers. Each operates independently. If the pizza shop closes, you can still get sushi.
+
+---
+
+## 🌍 Real-World Example
+
+**Netflix** migrated from a monolithic architecture to **700+ microservices**. Each service handles one thing: user authentication, video encoding, recommendation engine, billing, playback. Teams own individual services, deploy independently multiple times a day, and scale each service based on its specific demand.
+
+---
+
+## 🔍 Monolith vs Microservices
+
+| Aspect | Monolith | Microservices |
+|--------|:---:|:---:|
+| **Codebase** | Single large codebase | Many small codebases |
+| **Deployment** | Deploy everything together | Deploy services independently |
+| **Scaling** | Scale the entire app | Scale individual services |
+| **Technology** | One tech stack | Each service can use different stack |
+| **Team Structure** | One large team | Small teams per service |
+| **Failure Impact** | Entire app goes down | Only affected service fails |
+| **Complexity** | Simple at first | Complex infrastructure |
+
+---
+
+## 🔍 Key Components
+
+### API Gateway
+A single entry point for all client requests that routes to the appropriate microservice.
+
+### Service Discovery
+Services register themselves and discover other services dynamically (e.g., Consul, Eureka).
+
+### Inter-Service Communication
+- **Synchronous**: REST, gRPC (request-response)
+- **Asynchronous**: Message queues like Kafka, RabbitMQ (event-driven)
+
+---
+
+## 💻 Code Example: Microservice Structure
+
+<CodeBlock
+  title="Order Service Microservice"
+  java={`// Order Service - handles only order-related logic
+@RestController
+@RequestMapping("/api/orders")
+public class OrderController {
+
+    private final OrderService orderService;
+    private final InventoryClient inventoryClient; // Calls another service
+
+    @PostMapping
+    public ResponseEntity<Order> createOrder(@RequestBody CreateOrderRequest req) {
+        // 1. Check inventory (call Inventory Service via HTTP)
+        boolean inStock = inventoryClient.checkStock(req.getProductId(), req.getQuantity());
+        if (!inStock) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        // 2. Create order (this service's responsibility)
+        Order order = orderService.create(req);
+
+        // 3. Publish event for other services (async)
+        eventBus.publish(new OrderCreatedEvent(order.getId(), order.getUserId()));
+
+        return ResponseEntity.ok(order);
+    }
+}
+
+// Feign client for inter-service communication
+@FeignClient(name = "inventory-service")
+public interface InventoryClient {
+    @GetMapping("/api/inventory/{productId}")
+    boolean checkStock(@PathVariable String productId, @RequestParam int qty);
+}`}
+  python={`# Order Service (Flask microservice)
+from flask import Flask, request, jsonify
+import requests
+
+app = Flask(__name__)
+
+INVENTORY_SERVICE_URL = "http://inventory-service:8081"
+
+@app.route("/api/orders", methods=["POST"])
+def create_order():
+    data = request.json
+
+    # 1. Check inventory (call Inventory Service)
+    resp = requests.get(
+        f"{INVENTORY_SERVICE_URL}/api/inventory/{data['product_id']}",
+        params={"qty": data["quantity"]}
+    )
+    if not resp.json().get("in_stock"):
+        return jsonify({"error": "Out of stock"}), 400
+
+    # 2. Create order (this service's job)
+    order = order_service.create(data)
+
+    # 3. Publish event for other services
+    event_bus.publish("order.created", {"order_id": order["id"]})
+
+    return jsonify(order), 201`}
+  go={`// Order Service (Go microservice)
+func (h *OrderHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
+    var req CreateOrderRequest
+    json.NewDecoder(r.Body).Decode(&req)
+
+    // 1. Check inventory (call Inventory Service)
+    inStock, err := h.inventoryClient.CheckStock(req.ProductID, req.Quantity)
+    if err != nil || !inStock {
+        http.Error(w, "Out of stock", http.StatusBadRequest)
+        return
+    }
+
+    // 2. Create order
+    order, err := h.orderService.Create(req)
+    if err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+
+    // 3. Publish event
+    h.eventBus.Publish("order.created", OrderCreatedEvent{OrderID: order.ID})
+
+    json.NewEncoder(w).Encode(order)
+}`}
+  cpp={`// Order Service endpoint (conceptual)
+class OrderController {
+    OrderService& orderService;
+    InventoryClient& inventoryClient;
+    EventBus& eventBus;
+
+public:
+    HttpResponse createOrder(const HttpRequest& req) {
+        auto orderReq = parseRequest(req);
+
+        // 1. Check inventory
+        if (!inventoryClient.checkStock(orderReq.productId, orderReq.quantity)) {
+            return HttpResponse(400, "Out of stock");
+        }
+
+        // 2. Create order
+        auto order = orderService.create(orderReq);
+
+        // 3. Publish event
+        eventBus.publish("order.created", OrderCreatedEvent{order.id});
+
+        return HttpResponse(200, order.toJson());
+    }
+};`}
+/>
+
+---
+
+## 📊 Design Patterns for Microservices
+
+| Pattern | Purpose | When to Use |
+|---------|---------|-------------|
+| **API Gateway** | Single entry point, routing | Always — simplifies client communication |
+| **Saga** | Distributed transactions | Multi-service business workflows |
+| **Circuit Breaker** | Fault tolerance | Prevent cascading failures |
+| **CQRS** | Separate read/write models | Heavy read or complex query needs |
+| **Event Sourcing** | Record events, not just state | Audit trails, complex event flows |
+| **Sidecar** | Cross-cutting concerns | Logging, monitoring, security |
+
+---
+
+## ⚖️ Pros & Cons
+
+| Pros ✅ | Cons ❌ |
+|---------|---------|
+| Independent deployment | Network complexity |
+| Technology flexibility | Distributed debugging is hard |
+| Team autonomy | Data consistency challenges |
+| Fault isolation | Service discovery overhead |
+| Individual scaling | Operational complexity (DevOps) |
+
+---
+
+## 🧩 When to Use / When NOT to Use
+
+**Use microservices when:**
+- Your team is large (multiple teams, each owns a service)
+- Different parts of your app have different scaling needs
+- You need independent deployment (ship features fast)
+- Your domain is well-understood with clear bounded contexts
+
+**Don't use when:**
+- Your team is small (< 5-10 engineers)
+- You're building an MVP or prototype
+- Your domain isn't well-defined yet (you'll split wrong)
+- You don't have DevOps maturity (CI/CD, monitoring, logging)
+
+---
+
+## 🔗 Related Concepts
+
+- [API Design](/concepts/hld/api-design) — How microservices communicate
+- [Message Queues](/concepts/hld/message-queues) — Async communication between services
+- [Load Balancing](/concepts/hld/load-balancing) — Each service gets its own load balancer
+- [Circuit Breaker](/concepts/hld/circuit-breaker) — Resilience pattern for inter-service calls
+- [Distributed Tracing](/concepts/hld/distributed-tracing) — Tracing requests across services
+
+---
+
+## 📝 Quick Quiz
+
+**Q1: A startup with 3 engineers is building their first product. Should they use microservices?**
+
+A) Yes — it's industry best practice
+B) No — start with a monolith, split later when needed
+
+**Answer: B** — Microservices add significant operational overhead. A small team should start with a monolith and extract services as the team and domain grow.
+
+**Q2: In a microservices architecture, the Payment Service calls the Inventory Service, which calls the Shipping Service. The Shipping Service is down. What pattern prevents cascading failures?**
+
+A) API Gateway  B) Circuit Breaker  C) Event Sourcing
+
+**Answer: B** — Circuit Breaker detects the Shipping Service is down and "opens the circuit," returning a fallback response instead of timing out and cascading the failure upward.
+
+---
+
+*Sources: Netflix Tech Blog, Sam Newman's "Building Microservices", Martin Fowler's Microservices article, Uber Engineering Blog*

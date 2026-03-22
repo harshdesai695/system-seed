@@ -1,0 +1,225 @@
+# 🎯 What is the CAP Theorem?
+
+**CAP Theorem** states that a distributed system can only guarantee **two out of three** properties simultaneously: **Consistency**, **Availability**, and **Partition Tolerance**.
+
+> **Real-world analogy:** Imagine two bank branches (Branch A and Branch B) connected by a phone line. You have $100 in your account. If the phone line goes down (**partition**), the branches face a choice: either both **stop accepting transactions** until the line is restored (choosing **Consistency** over Availability) or both **keep serving customers** based on their last known balance, risking duplicate withdrawals (choosing **Availability** over Consistency).
+
+---
+
+## 🌍 Real-World Example
+
+**Amazon's DynamoDB** chooses **AP** (Availability + Partition Tolerance). During a network partition, DynamoDB keeps serving requests, accepting that some reads might return slightly outdated data. For Amazon, a shopping cart that shows a slightly old item count is better than an error page that stops customers from buying.
+
+**Google Spanner** chooses **CP** (Consistency + Partition Tolerance). It uses synchronized atomic clocks to ensure strong consistency across data centers, accepting that during severe network issues, requests might be delayed.
+
+---
+
+## 🔍 The Three Properties
+
+### C — Consistency
+Every read receives the **most recent write** or an error. All nodes see the same data at the same time.
+
+### A — Availability
+Every request receives a **response** (not an error), even if it's not the latest data. The system is always operational.
+
+### P — Partition Tolerance
+The system continues to **operate** even when network communication between nodes is lost (network partition).
+
+---
+
+## 📊 The CAP Triangle
+
+| Combination | What you get | What you sacrifice | Real-world example |
+|:-----------:|:---|:---|:---|
+| **CP** | Consistency + Partition Tolerance | Availability (during partitions) | Google Spanner, HBase, MongoDB (default) |
+| **AP** | Availability + Partition Tolerance | Consistency (stale reads possible) | Cassandra, DynamoDB, CouchDB |
+| **CA** | Consistency + Availability | Partition Tolerance | Traditional RDBMS (single node) |
+
+> **Important:** In a distributed system, network partitions **will** happen. You can't avoid P. So the real choice is between **CP** and **AP**.
+
+---
+
+## 💻 Code Example: CP vs AP Behavior
+
+<CodeBlock
+  title="CP vs AP System Behavior"
+  java={`// CP System: Rejects requests during partition
+public class CPSystem {
+    private int value;
+    private boolean partitioned = false;
+
+    public void write(int newValue) {
+        if (partitioned) {
+            throw new UnavailableException("System unavailable during partition");
+        }
+        this.value = newValue;
+        replicateToAllNodes(newValue); // Wait for ALL replicas
+    }
+
+    public int read() {
+        if (partitioned) {
+            throw new UnavailableException("System unavailable during partition");
+        }
+        return value; // Always returns latest value
+    }
+}
+
+// AP System: Always responds, even with stale data
+public class APSystem {
+    private int localValue;
+
+    public void write(int newValue) {
+        this.localValue = newValue;
+        asyncReplicateToOtherNodes(newValue); // Don't wait
+    }
+
+    public int read() {
+        return localValue; // Might be stale during partition
+    }
+}`}
+  python={`# CP System: Consistency over Availability
+class CPSystem:
+    def __init__(self):
+        self.value = None
+        self.partitioned = False
+
+    def write(self, new_value):
+        if self.partitioned:
+            raise Exception("System unavailable during partition")
+        self.value = new_value
+        self._replicate_sync(new_value)  # Wait for ALL replicas
+
+    def read(self):
+        if self.partitioned:
+            raise Exception("System unavailable during partition")
+        return self.value  # Always returns latest value
+
+# AP System: Availability over Consistency
+class APSystem:
+    def __init__(self):
+        self.local_value = None
+
+    def write(self, new_value):
+        self.local_value = new_value
+        self._replicate_async(new_value)  # Don't wait
+
+    def read(self):
+        return self.local_value  # Might be stale during partition`}
+  go={`// CP System: Returns error during partition
+type CPSystem struct {
+    value       int
+    partitioned bool
+    mu          sync.RWMutex
+}
+
+func (s *CPSystem) Write(newValue int) error {
+    s.mu.Lock()
+    defer s.mu.Unlock()
+    if s.partitioned {
+        return errors.New("system unavailable during partition")
+    }
+    s.value = newValue
+    return s.replicateSync(newValue) // Wait for ALL replicas
+}
+
+func (s *CPSystem) Read() (int, error) {
+    s.mu.RLock()
+    defer s.mu.RUnlock()
+    if s.partitioned {
+        return 0, errors.New("system unavailable during partition")
+    }
+    return s.value, nil
+}`}
+  cpp={`// CP System
+class CPSystem {
+    int value;
+    bool partitioned = false;
+public:
+    void write(int newValue) {
+        if (partitioned) throw std::runtime_error("Unavailable during partition");
+        value = newValue;
+        replicateSync(newValue);
+    }
+
+    int read() {
+        if (partitioned) throw std::runtime_error("Unavailable during partition");
+        return value;
+    }
+};`}
+/>
+
+---
+
+## 📊 Real-World Database Classification
+
+| Database | CAP Choice | Use Case |
+|:---|:---:|:---|
+| PostgreSQL (single) | CA | Traditional apps, ACID transactions |
+| MongoDB (default) | CP | When you need strong consistency |
+| Cassandra | AP | High availability, write-heavy workloads |
+| DynamoDB | AP | E-commerce, gaming |
+| Google Spanner | CP | Global financial systems |
+| Redis Cluster | AP | Caching, real-time data |
+| ZooKeeper | CP | Configuration management, leader election |
+
+---
+
+## ⚖️ Key Insight: PACELC Theorem
+
+CAP only describes behavior **during a partition**. The **PACELC theorem** extends it:
+
+> **If** there's a **P**artition, choose **A**vailability or **C**onsistency. **E**lse (normal operation), choose **L**atency or **C**onsistency.
+
+| System | During Partition (PAC) | Normal Operation (ELC) |
+|:---|:---:|:---:|
+| DynamoDB | PA | EL (low latency) |
+| Cassandra | PA | EL |
+| MongoDB | PC | EC (consistent) |
+| Google Spanner | PC | EC |
+
+---
+
+## 🧩 When to Choose CP vs AP
+
+**Choose CP (Consistency) when:**
+- Financial transactions
+- Inventory management (don't oversell)
+- User authentication / authorization
+- Any system where wrong data is worse than no data
+
+**Choose AP (Availability) when:**
+- Social media feeds
+- Shopping carts
+- Anonymous analytics
+- Any system where slightly stale data is acceptable
+
+---
+
+## 🔗 Related Concepts
+
+- [Database Replication](/concepts/hld/database-replication) — Replication strategies are directly impacted by CAP
+- [Consistent Hashing](/concepts/hld/consistent-hashing) — Used in AP systems for data distribution
+- [Distributed Systems](/concepts/hld/distributed-systems) — CAP is fundamental to distributed system design
+- [Database Design](/concepts/hld/database-design) — CAP influences SQL vs NoSQL decisions
+
+---
+
+## 📝 Quick Quiz
+
+**Q1: Your e-commerce site has a flash sale. Thousands of users are buying the same item. You can't oversell. Which is correct?**
+
+A) Choose AP — keep the site available at all costs
+B) Choose CP — ensure consistent inventory counts even if some requests fail
+
+**Answer: B** — Overselling would cost the company money and trust. Better to reject some requests during partitions than sell items you don't have.
+
+**Q2: A social media app shows a post's like count. During a network partition, counts on different servers diverge. Is this acceptable?**
+
+A) No — users must always see the exact like count
+B) Yes — showing 1,003 likes vs 1,005 likes is fine; availability matters more
+
+**Answer: B** — Social media likes are a classic AP use case. Showing a slightly stale count is acceptable; showing an error page is not.
+
+---
+
+*Sources: Designing Data-Intensive Applications by Martin Kleppmann, Eric Brewer's CAP Theorem paper, Google Spanner paper*

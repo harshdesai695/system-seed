@@ -1,0 +1,414 @@
+# 🎯 What are Structural Design Patterns?
+
+**Structural Design Patterns** deal with how classes and objects are **composed** to form larger structures. They help ensure that when parts of a system change, the entire structure doesn't need to change.
+
+> **Real-world analogy:** Think of **LEGO bricks**. Each brick has a simple interface (the studs and holes), but you can combine them to create anything from a small house to a massive castle. Structural patterns are the rules for how to connect bricks together effectively.
+
+---
+
+## 🌍 Real-World Example
+
+**Java's I/O library** is a masterclass in structural patterns. When you write `new BufferedReader(new InputStreamReader(new FileInputStream("file.txt")))`, you're using the **Decorator pattern** — wrapping objects to add new behavior layer by layer.
+
+---
+
+## 🔍 Key Structural Patterns
+
+---
+
+## 1. Adapter Pattern
+
+> **Convert the interface of a class into another interface clients expect.**
+
+**Analogy:** A **travel power adapter** lets you plug your US charger into a European outlet. The adapter translates between two incompatible interfaces.
+
+<CodeBlock
+  title="Adapter Pattern"
+  java={`// Target interface our app uses
+public interface MediaPlayer {
+    void play(String filename);
+}
+
+// Legacy class with a different interface
+public class OldMusicPlayer {
+    public void playMp3(String file) {
+        System.out.println("Playing MP3: " + file);
+    }
+}
+
+// Adapter: makes OldMusicPlayer compatible with MediaPlayer
+public class MusicPlayerAdapter implements MediaPlayer {
+    private final OldMusicPlayer oldPlayer;
+
+    public MusicPlayerAdapter(OldMusicPlayer oldPlayer) {
+        this.oldPlayer = oldPlayer;
+    }
+
+    @Override
+    public void play(String filename) {
+        // Translate the call
+        oldPlayer.playMp3(filename);
+    }
+}
+
+// Usage: Client code works with MediaPlayer interface
+MediaPlayer player = new MusicPlayerAdapter(new OldMusicPlayer());
+player.play("song.mp3");`}
+  python={`from abc import ABC, abstractmethod
+
+# Target interface our app uses
+class MediaPlayer(ABC):
+    @abstractmethod
+    def play(self, filename: str) -> None: ...
+
+# Legacy class with a different interface
+class OldMusicPlayer:
+    def play_mp3(self, file: str):
+        print(f"Playing MP3: {file}")
+
+# Adapter: makes OldMusicPlayer compatible with MediaPlayer
+class MusicPlayerAdapter(MediaPlayer):
+    def __init__(self, old_player: OldMusicPlayer):
+        self.old_player = old_player
+
+    def play(self, filename: str) -> None:
+        self.old_player.play_mp3(filename)
+
+# Usage
+player: MediaPlayer = MusicPlayerAdapter(OldMusicPlayer())
+player.play("song.mp3")`}
+  go={`// Target interface
+type MediaPlayer interface {
+    Play(filename string)
+}
+
+// Legacy struct
+type OldMusicPlayer struct{}
+func (o *OldMusicPlayer) PlayMp3(file string) {
+    fmt.Printf("Playing MP3: %s\\n", file)
+}
+
+// Adapter
+type MusicPlayerAdapter struct {
+    oldPlayer *OldMusicPlayer
+}
+
+func (a *MusicPlayerAdapter) Play(filename string) {
+    a.oldPlayer.PlayMp3(filename) // Translate the call
+}
+
+// Usage
+var player MediaPlayer = &MusicPlayerAdapter{oldPlayer: &OldMusicPlayer{}}
+player.Play("song.mp3")`}
+  cpp={`// Target interface
+class MediaPlayer {
+public:
+    virtual void play(const std::string& filename) = 0;
+    virtual ~MediaPlayer() = default;
+};
+
+// Legacy class
+class OldMusicPlayer {
+public:
+    void playMp3(const std::string& file) {
+        std::cout << "Playing MP3: " << file << std::endl;
+    }
+};
+
+// Adapter
+class MusicPlayerAdapter : public MediaPlayer {
+    OldMusicPlayer& oldPlayer;
+public:
+    MusicPlayerAdapter(OldMusicPlayer& old) : oldPlayer(old) {}
+    void play(const std::string& filename) override {
+        oldPlayer.playMp3(filename);
+    }
+};`}
+/>
+
+---
+
+## 2. Decorator Pattern
+
+> **Attach additional responsibilities to an object dynamically. Decorators provide a flexible alternative to subclassing.**
+
+**Analogy:** You have a **plain coffee**. You can decorate it with milk, then sugar, then whipped cream. Each addition wraps the previous one, adding flavor without changing the original coffee.
+
+<CodeBlock
+  title="Decorator Pattern"
+  java={`// Base interface
+public interface Coffee {
+    double cost();
+    String description();
+}
+
+// Concrete component
+public class SimpleCoffee implements Coffee {
+    public double cost() { return 2.00; }
+    public String description() { return "Simple coffee"; }
+}
+
+// Base decorator
+public abstract class CoffeeDecorator implements Coffee {
+    protected final Coffee coffee;
+    public CoffeeDecorator(Coffee coffee) { this.coffee = coffee; }
+}
+
+// Concrete decorators
+public class MilkDecorator extends CoffeeDecorator {
+    public MilkDecorator(Coffee coffee) { super(coffee); }
+    public double cost() { return coffee.cost() + 0.50; }
+    public String description() { return coffee.description() + ", milk"; }
+}
+
+public class SugarDecorator extends CoffeeDecorator {
+    public SugarDecorator(Coffee coffee) { super(coffee); }
+    public double cost() { return coffee.cost() + 0.25; }
+    public String description() { return coffee.description() + ", sugar"; }
+}
+
+// Usage: Stack decorators!
+Coffee order = new SugarDecorator(new MilkDecorator(new SimpleCoffee()));
+System.out.println(order.description()); // "Simple coffee, milk, sugar"
+System.out.println(order.cost());        // 2.75`}
+  python={`from abc import ABC, abstractmethod
+
+class Coffee(ABC):
+    @abstractmethod
+    def cost(self) -> float: ...
+    @abstractmethod
+    def description(self) -> str: ...
+
+class SimpleCoffee(Coffee):
+    def cost(self) -> float: return 2.00
+    def description(self) -> str: return "Simple coffee"
+
+# Decorators
+class MilkDecorator(Coffee):
+    def __init__(self, coffee: Coffee):
+        self._coffee = coffee
+    def cost(self) -> float: return self._coffee.cost() + 0.50
+    def description(self) -> str: return f"{self._coffee.description()}, milk"
+
+class SugarDecorator(Coffee):
+    def __init__(self, coffee: Coffee):
+        self._coffee = coffee
+    def cost(self) -> float: return self._coffee.cost() + 0.25
+    def description(self) -> str: return f"{self._coffee.description()}, sugar"
+
+# Stack decorators!
+order = SugarDecorator(MilkDecorator(SimpleCoffee()))
+print(order.description())  # "Simple coffee, milk, sugar"
+print(order.cost())         # 2.75`}
+  go={`type Coffee interface {
+    Cost() float64
+    Description() string
+}
+
+type SimpleCoffee struct{}
+func (s *SimpleCoffee) Cost() float64      { return 2.00 }
+func (s *SimpleCoffee) Description() string { return "Simple coffee" }
+
+// Milk decorator
+type MilkDecorator struct{ coffee Coffee }
+func (m *MilkDecorator) Cost() float64      { return m.coffee.Cost() + 0.50 }
+func (m *MilkDecorator) Description() string { return m.coffee.Description() + ", milk" }
+
+// Sugar decorator
+type SugarDecorator struct{ coffee Coffee }
+func (s *SugarDecorator) Cost() float64      { return s.coffee.Cost() + 0.25 }
+func (s *SugarDecorator) Description() string { return s.coffee.Description() + ", sugar" }`}
+  cpp={`class Coffee {
+public:
+    virtual double cost() const = 0;
+    virtual std::string description() const = 0;
+    virtual ~Coffee() = default;
+};
+
+class SimpleCoffee : public Coffee {
+public:
+    double cost() const override { return 2.00; }
+    std::string description() const override { return "Simple coffee"; }
+};
+
+class MilkDecorator : public Coffee {
+    std::unique_ptr<Coffee> coffee;
+public:
+    MilkDecorator(std::unique_ptr<Coffee> c) : coffee(std::move(c)) {}
+    double cost() const override { return coffee->cost() + 0.50; }
+    std::string description() const override { return coffee->description() + ", milk"; }
+};`}
+/>
+
+---
+
+## 3. Facade Pattern
+
+> **Provide a simplified interface to a complex subsystem.**
+
+**Analogy:** A **hotel concierge** is a facade. Instead of calling the restaurant, the taxi company, and the theater yourself, you talk to one person who handles everything.
+
+<CodeBlock
+  title="Facade Pattern"
+  java={`// Complex subsystem classes
+class Lights { void dim() { System.out.println("Lights dimmed"); } }
+class Projector { void on() { System.out.println("Projector on"); } }
+class SoundSystem { void setVolume(int v) { System.out.println("Volume: " + v); } }
+class StreamingService { void play(String movie) { System.out.println("Playing: " + movie); } }
+
+// Facade: One simple method instead of calling 4 classes
+public class HomeTheaterFacade {
+    private final Lights lights;
+    private final Projector projector;
+    private final SoundSystem sound;
+    private final StreamingService stream;
+
+    public HomeTheaterFacade() {
+        lights = new Lights();
+        projector = new Projector();
+        sound = new SoundSystem();
+        stream = new StreamingService();
+    }
+
+    // Simple interface for a complex operation
+    public void watchMovie(String movie) {
+        System.out.println("\\n--- Movie Night ---");
+        lights.dim();
+        projector.on();
+        sound.setVolume(80);
+        stream.play(movie);
+    }
+}
+
+// Usage: One call does everything
+HomeTheaterFacade theater = new HomeTheaterFacade();
+theater.watchMovie("Inception");`}
+  python={`# Complex subsystem classes
+class Lights:
+    def dim(self): print("Lights dimmed")
+
+class Projector:
+    def on(self): print("Projector on")
+
+class SoundSystem:
+    def set_volume(self, v: int): print(f"Volume: {v}")
+
+class StreamingService:
+    def play(self, movie: str): print(f"Playing: {movie}")
+
+# Facade
+class HomeTheaterFacade:
+    def __init__(self):
+        self.lights = Lights()
+        self.projector = Projector()
+        self.sound = SoundSystem()
+        self.stream = StreamingService()
+
+    def watch_movie(self, movie: str):
+        print("\\n--- Movie Night ---")
+        self.lights.dim()
+        self.projector.on()
+        self.sound.set_volume(80)
+        self.stream.play(movie)
+
+# Usage
+theater = HomeTheaterFacade()
+theater.watch_movie("Inception")`}
+  go={`type Lights struct{}
+func (l *Lights) Dim() { fmt.Println("Lights dimmed") }
+
+type Projector struct{}
+func (p *Projector) On() { fmt.Println("Projector on") }
+
+type SoundSystem struct{}
+func (s *SoundSystem) SetVolume(v int) { fmt.Printf("Volume: %d\\n", v) }
+
+type StreamingService struct{}
+func (s *StreamingService) Play(movie string) { fmt.Printf("Playing: %s\\n", movie) }
+
+// Facade
+type HomeTheaterFacade struct {
+    lights  *Lights
+    proj    *Projector
+    sound   *SoundSystem
+    stream  *StreamingService
+}
+
+func (h *HomeTheaterFacade) WatchMovie(movie string) {
+    fmt.Println("\\n--- Movie Night ---")
+    h.lights.Dim()
+    h.proj.On()
+    h.sound.SetVolume(80)
+    h.stream.Play(movie)
+}`}
+  cpp={`class Lights { public: void dim() { std::cout << "Lights dimmed" << std::endl; } };
+class Projector { public: void on() { std::cout << "Projector on" << std::endl; } };
+class SoundSystem { public: void setVolume(int v) { std::cout << "Volume: " << v << std::endl; } };
+
+class HomeTheaterFacade {
+    Lights lights;
+    Projector projector;
+    SoundSystem sound;
+public:
+    void watchMovie(const std::string& movie) {
+        std::cout << "--- Movie Night ---" << std::endl;
+        lights.dim();
+        projector.on();
+        sound.setVolume(80);
+        std::cout << "Playing: " << movie << std::endl;
+    }
+};`}
+/>
+
+---
+
+## 📊 Pattern Comparison
+
+| Pattern | Purpose | Key Idea | Complexity |
+|---------|---------|----------|:----------:|
+| **Adapter** | Make incompatible interfaces work together | Wraps one interface to match another | Low |
+| **Bridge** | Separate abstraction from implementation | Two parallel class hierarchies | High |
+| **Composite** | Treat individual objects and groups uniformly | Tree structure | Medium |
+| **Decorator** | Add behavior dynamically | Wrap objects layer by layer | Medium |
+| **Facade** | Simplify complex subsystem access | One entry point for complex logic | Low |
+| **Proxy** | Control access to an object | Surrogate that controls access | Medium |
+
+---
+
+## ⚖️ Pros & Cons
+
+| Pattern | Pros ✅ | Cons ❌ |
+|---------|---------|---------|
+| Adapter | Reuse legacy code, decouple systems | Extra indirection layer |
+| Decorator | Flexible extension without subclassing | Can create many small wrapper classes |
+| Facade | Simplifies client code, reduces coupling | Can become a "god class" if not careful |
+| Composite | Uniform treatment of parts and wholes | Can over-generalize the design |
+
+---
+
+## 🔗 Related Concepts
+
+- [SOLID Principles](/concepts/lld/solid-principles) — Structural patterns embody OCP and ISP
+- [Design Patterns — Creational](/concepts/lld/creational-patterns) — How objects are created before being structured
+- [Design Patterns — Behavioral](/concepts/lld/behavioral-patterns) — How structured objects communicate
+- [Logging Framework](/concepts/lld/logging-framework) — Uses Decorator and Chain of Responsibility
+
+---
+
+## 📝 Quick Quiz
+
+**Q1: You need to integrate a new payment system that has a completely different API than what your code expects. Which pattern?**
+
+A) Decorator  B) Adapter  C) Facade
+
+**Answer: B** — Adapter converts the new payment API into the interface your code already uses.
+
+**Q2: You want to add logging, authentication, and rate limiting to an HTTP handler without modifying the handler itself. Which pattern?**
+
+A) Adapter  B) Facade  C) Decorator
+
+**Answer: C** — Decorator wraps the handler with each concern as a layer: `RateLimiter(Auth(Logger(handler)))`.
+
+---
+
+*Sources: Design Patterns (GoF), Head First Design Patterns, Java I/O Documentation*

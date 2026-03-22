@@ -1,0 +1,277 @@
+# 🎯 Vending Machine Design
+
+Design an **Object-Oriented Vending Machine** that handles product selection, money insertion, dispensing, and change return using the **State pattern**.
+
+> **Real-world analogy:** A real vending machine — you insert coins, select a product, the machine validates you've paid enough, dispenses the item, and returns change.
+
+---
+
+## 📋 Requirements
+
+### Functional
+- Display available products and their prices
+- Accept money (coins and bills)
+- Select a product, validate payment
+- Dispense product and return change
+- Handle edge cases (out of stock, insufficient funds)
+
+---
+
+## 🔍 State Machine
+
+| State | Description |
+|-------|-------------|
+| **Idle** | Waiting for money insertion |
+| **HasMoney** | Money inserted, waiting for selection |
+| **Dispensing** | Validating and dispensing product |
+
+---
+
+## 💻 Code Example
+
+<CodeBlock
+  title="Vending Machine"
+  python={`from enum import Enum
+from dataclasses import dataclass
+
+class State(Enum):
+    IDLE = "idle"
+    HAS_MONEY = "has_money"
+    DISPENSING = "dispensing"
+
+@dataclass
+class Product:
+    name: str
+    price: float
+    quantity: int
+
+class VendingMachine:
+    def __init__(self):
+        self._products: dict[str, Product] = {}
+        self._balance = 0.0
+        self._state = State.IDLE
+
+    def add_product(self, code: str, name: str,
+                    price: float, qty: int):
+        self._products[code] = Product(name, price, qty)
+
+    def display(self):
+        print("\\n🏪 Vending Machine")
+        print("-" * 35)
+        for code, p in self._products.items():
+            status = "✅" if p.quantity > 0 else "❌ SOLD OUT"
+            print(f"  [{code}] {p.name:15s} ${'$'}{p.price:.2f}  {status}")
+        print(f"\\n  💰 Balance: ${'$'}{self._balance:.2f}")
+
+    def insert_money(self, amount: float) -> str:
+        if amount <= 0:
+            return "Invalid amount"
+        self._balance += amount
+        self._state = State.HAS_MONEY
+        return f"Inserted ${'$'}{amount:.2f}. Balance: ${'$'}{self._balance:.2f}"
+
+    def select_product(self, code: str) -> str:
+        product = self._products.get(code)
+
+        if not product:
+            return f"❌ Invalid code: {code}"
+
+        if product.quantity <= 0:
+            return f"❌ {product.name} is sold out"
+
+        if self._balance < product.price:
+            shortfall = product.price - self._balance
+            return f"❌ Insufficient funds. Need ${'$'}{shortfall:.2f} more"
+
+        # Dispense
+        self._state = State.DISPENSING
+        product.quantity -= 1
+        change = self._balance - product.price
+        self._balance = 0.0
+        self._state = State.IDLE
+
+        result = f"✅ Dispensing: {product.name}"
+        if change > 0:
+            result += f"\\n💰 Change: ${'$'}{change:.2f}"
+        return result
+
+    def return_money(self) -> str:
+        if self._balance == 0:
+            return "No money to return"
+        returned = self._balance
+        self._balance = 0.0
+        self._state = State.IDLE
+        return f"💰 Returned ${'$'}{returned:.2f}"
+
+# Usage
+vm = VendingMachine()
+vm.add_product("A1", "Cola", 1.50, 5)
+vm.add_product("A2", "Chips", 2.00, 3)
+vm.add_product("B1", "Water", 1.00, 10)
+vm.add_product("B2", "Candy", 0.75, 0)
+
+vm.display()
+print(vm.insert_money(2.00))
+print(vm.select_product("A1"))  # Dispenses Cola, $0.50 change
+print(vm.select_product("B2"))  # Sold out`}
+  java={`public class VendingMachine {
+    private final Map<String, Product> products = new LinkedHashMap<>();
+    private double balance = 0;
+    private State state = State.IDLE;
+
+    enum State { IDLE, HAS_MONEY, DISPENSING }
+
+    public void addProduct(String code, String name,
+                           double price, int qty) {
+        products.put(code, new Product(name, price, qty));
+    }
+
+    public String insertMoney(double amount) {
+        if (amount <= 0) return "Invalid amount";
+        balance += amount;
+        state = State.HAS_MONEY;
+        return String.format("Balance: $%.2f", balance);
+    }
+
+    public String selectProduct(String code) {
+        Product product = products.get(code);
+        if (product == null) return "Invalid code";
+        if (product.getQuantity() <= 0) return "Sold out";
+        if (balance < product.getPrice()) {
+            return String.format("Need $%.2f more",
+                product.getPrice() - balance);
+        }
+
+        state = State.DISPENSING;
+        product.decrementQuantity();
+        double change = balance - product.getPrice();
+        balance = 0;
+        state = State.IDLE;
+
+        String result = "Dispensing: " + product.getName();
+        if (change > 0)
+            result += String.format("\\nChange: $%.2f", change);
+        return result;
+    }
+
+    public double returnMoney() {
+        double returned = balance;
+        balance = 0;
+        state = State.IDLE;
+        return returned;
+    }
+}`}
+  go={`type VendingMachine struct {
+    products map[string]*Product
+    balance  float64
+    state    State
+}
+
+type State int
+const (
+    Idle State = iota
+    HasMoney
+    Dispensing
+)
+
+type Product struct {
+    Name     string
+    Price    float64
+    Quantity int
+}
+
+func (vm *VendingMachine) InsertMoney(amount float64) string {
+    if amount <= 0 {
+        return "Invalid amount"
+    }
+    vm.balance += amount
+    vm.state = HasMoney
+    return fmt.Sprintf("Balance: $%.2f", vm.balance)
+}
+
+func (vm *VendingMachine) SelectProduct(code string) string {
+    product, ok := vm.products[code]
+    if !ok { return "Invalid code" }
+    if product.Quantity <= 0 { return "Sold out" }
+    if vm.balance < product.Price {
+        return fmt.Sprintf("Need $%.2f more",
+            product.Price-vm.balance)
+    }
+
+    vm.state = Dispensing
+    product.Quantity--
+    change := vm.balance - product.Price
+    vm.balance = 0
+    vm.state = Idle
+
+    result := "Dispensing: " + product.Name
+    if change > 0 {
+        result += fmt.Sprintf("\\nChange: $%.2f", change)
+    }
+    return result
+}`}
+  cpp={`class VendingMachine {
+    std::map<std::string, Product> products_;
+    double balance_ = 0;
+
+public:
+    void addProduct(const std::string& code,
+                    const std::string& name,
+                    double price, int qty) {
+        products_[code] = {name, price, qty};
+    }
+
+    std::string insertMoney(double amount) {
+        if (amount <= 0) return "Invalid amount";
+        balance_ += amount;
+        return "Balance: $" + std::to_string(balance_);
+    }
+
+    std::string selectProduct(const std::string& code) {
+        auto it = products_.find(code);
+        if (it == products_.end()) return "Invalid code";
+
+        auto& product = it->second;
+        if (product.quantity <= 0) return "Sold out";
+        if (balance_ < product.price)
+            return "Insufficient funds";
+
+        product.quantity--;
+        double change = balance_ - product.price;
+        balance_ = 0;
+
+        std::string result = "Dispensing: " + product.name;
+        if (change > 0)
+            result += "\\nChange: $" + std::to_string(change);
+        return result;
+    }
+};`}
+/>
+
+---
+
+## 📊 Design Patterns Used
+
+| Pattern | Where | Why |
+|---------|-------|-----|
+| **State** | Machine states | Behavior changes based on state |
+| **Singleton** | VendingMachine | One machine instance |
+| **Strategy** | Payment validation | Different payment methods |
+
+---
+
+## 🔗 Related Concepts
+
+- [Behavioral Patterns](/concepts/lld/behavioral-patterns) — State pattern drives the machine
+- [SOLID Principles](/concepts/lld/solid-principles) — Open/Closed for adding products
+- [ATM System](/concepts/lld/atm-system) — Similar state machine design
+
+---
+
+## 📝 Quick Quiz
+
+**Q1: A user inserts $2.00 and selects a $1.75 item. What should happen?**
+
+A) Dispense item only  B) Dispense item and return $0.25 change
+
+**Answer: B** — Calculate change = balance - price, dispense the product, and return the difference.

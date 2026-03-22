@@ -1,0 +1,368 @@
+# 🎯 Cache Design — LRU & LFU
+
+Design **Object-Oriented Cache implementations** using **LRU (Least Recently Used)** and **LFU (Least Frequently Used)** eviction policies with O(1) time complexity for all operations.
+
+> **Real-world analogy:** **LRU** = A restaurant with limited tables. When full, the table that's been empty the longest gets reassigned. **LFU** = A library with limited shelf space. When full, the book borrowed the fewest times gets removed.
+
+---
+
+## 📊 LRU vs LFU Comparison
+
+| Feature | LRU | LFU |
+|---------|-----|-----|
+| **Evicts** | Least recently accessed | Least frequently accessed |
+| **Data Structure** | HashMap + Doubly Linked List | HashMap + Frequency Buckets |
+| **Time Complexity** | O(1) get/put | O(1) get/put |
+| **Best For** | Temporal locality | Frequency-based access |
+| **Weakness** | Scan pollution | Stale popular items |
+
+---
+
+## 💻 Code Example: LRU Cache
+
+<CodeBlock
+  title="LRU Cache (O(1) Operations)"
+  python={`class Node:
+    def __init__(self, key: int = 0, val: int = 0):
+        self.key = key
+        self.val = val
+        self.prev: Node | None = None
+        self.next: Node | None = None
+
+class LRUCache:
+    def __init__(self, capacity: int):
+        self.capacity = capacity
+        self.cache: dict[int, Node] = {}
+        # Sentinel nodes
+        self.head = Node()  # Most recent
+        self.tail = Node()  # Least recent
+        self.head.next = self.tail
+        self.tail.prev = self.head
+
+    def _remove(self, node: Node):
+        node.prev.next = node.next
+        node.next.prev = node.prev
+
+    def _add_to_front(self, node: Node):
+        node.next = self.head.next
+        node.prev = self.head
+        self.head.next.prev = node
+        self.head.next = node
+
+    def get(self, key: int) -> int:
+        if key not in self.cache:
+            return -1
+        node = self.cache[key]
+        self._remove(node)
+        self._add_to_front(node)  # Mark as recently used
+        return node.val
+
+    def put(self, key: int, value: int):
+        if key in self.cache:
+            self._remove(self.cache[key])
+            del self.cache[key]
+
+        if len(self.cache) >= self.capacity:
+            # Evict LRU (node before tail)
+            lru = self.tail.prev
+            self._remove(lru)
+            del self.cache[lru.key]
+
+        node = Node(key, value)
+        self.cache[key] = node
+        self._add_to_front(node)
+
+# Usage
+cache = LRUCache(3)
+cache.put(1, 10)
+cache.put(2, 20)
+cache.put(3, 30)
+print(cache.get(1))   # 10 — moves 1 to front
+cache.put(4, 40)       # Evicts key 2 (least recently used)
+print(cache.get(2))    # -1 (evicted)`}
+  java={`public class LRUCache {
+    private final int capacity;
+    private final Map<Integer, Node> cache = new HashMap<>();
+    private final Node head = new Node(), tail = new Node();
+
+    static class Node {
+        int key, val;
+        Node prev, next;
+        Node() {}
+        Node(int k, int v) { key = k; val = v; }
+    }
+
+    public LRUCache(int capacity) {
+        this.capacity = capacity;
+        head.next = tail;
+        tail.prev = head;
+    }
+
+    private void remove(Node node) {
+        node.prev.next = node.next;
+        node.next.prev = node.prev;
+    }
+
+    private void addToFront(Node node) {
+        node.next = head.next;
+        node.prev = head;
+        head.next.prev = node;
+        head.next = node;
+    }
+
+    public int get(int key) {
+        Node node = cache.get(key);
+        if (node == null) return -1;
+        remove(node);
+        addToFront(node);
+        return node.val;
+    }
+
+    public void put(int key, int value) {
+        if (cache.containsKey(key)) {
+            remove(cache.get(key));
+            cache.remove(key);
+        }
+        if (cache.size() >= capacity) {
+            Node lru = tail.prev;
+            remove(lru);
+            cache.remove(lru.key);
+        }
+        Node node = new Node(key, value);
+        cache.put(key, node);
+        addToFront(node);
+    }
+}`}
+  go={`type LRUCache struct {
+    capacity int
+    cache    map[int]*Node
+    head     *Node
+    tail     *Node
+}
+
+type Node struct {
+    key, val   int
+    prev, next *Node
+}
+
+func NewLRUCache(cap int) *LRUCache {
+    head, tail := &Node{}, &Node{}
+    head.next = tail
+    tail.prev = head
+    return &LRUCache{cap, make(map[int]*Node), head, tail}
+}
+
+func (c *LRUCache) remove(node *Node) {
+    node.prev.next = node.next
+    node.next.prev = node.prev
+}
+
+func (c *LRUCache) addToFront(node *Node) {
+    node.next = c.head.next
+    node.prev = c.head
+    c.head.next.prev = node
+    c.head.next = node
+}
+
+func (c *LRUCache) Get(key int) int {
+    node, ok := c.cache[key]
+    if !ok { return -1 }
+    c.remove(node)
+    c.addToFront(node)
+    return node.val
+}
+
+func (c *LRUCache) Put(key, value int) {
+    if node, ok := c.cache[key]; ok {
+        c.remove(node)
+        delete(c.cache, key)
+    }
+    if len(c.cache) >= c.capacity {
+        lru := c.tail.prev
+        c.remove(lru)
+        delete(c.cache, lru.key)
+    }
+    node := &Node{key: key, val: value}
+    c.cache[key] = node
+    c.addToFront(node)
+}`}
+  cpp={`class LRUCache {
+    int capacity_;
+    std::list<std::pair<int, int>> order_;
+    std::unordered_map<int,
+        std::list<std::pair<int, int>>::iterator> cache_;
+
+public:
+    LRUCache(int capacity) : capacity_(capacity) {}
+
+    int get(int key) {
+        auto it = cache_.find(key);
+        if (it == cache_.end()) return -1;
+        // Move to front
+        order_.splice(order_.begin(), order_, it->second);
+        return it->second->second;
+    }
+
+    void put(int key, int value) {
+        auto it = cache_.find(key);
+        if (it != cache_.end()) {
+            order_.erase(it->second);
+            cache_.erase(it);
+        }
+        if ((int)cache_.size() >= capacity_) {
+            auto& lru = order_.back();
+            cache_.erase(lru.first);
+            order_.pop_back();
+        }
+        order_.emplace_front(key, value);
+        cache_[key] = order_.begin();
+    }
+};`}
+/>
+
+---
+
+## 💻 LFU Cache Implementation
+
+<CodeBlock
+  title="LFU Cache (O(1) Operations)"
+  python={`from collections import defaultdict, OrderedDict
+
+class LFUCache:
+    def __init__(self, capacity: int):
+        self.capacity = capacity
+        self.cache: dict[int, tuple[int, int]] = {}  # key → (val, freq)
+        self.freq_map: dict[int, OrderedDict] = defaultdict(OrderedDict)
+        self.min_freq = 0
+
+    def _update_freq(self, key: int):
+        val, freq = self.cache[key]
+        del self.freq_map[freq][key]
+        if not self.freq_map[freq]:
+            del self.freq_map[freq]
+            if self.min_freq == freq:
+                self.min_freq += 1
+
+        new_freq = freq + 1
+        self.cache[key] = (val, new_freq)
+        self.freq_map[new_freq][key] = None
+
+    def get(self, key: int) -> int:
+        if key not in self.cache:
+            return -1
+        self._update_freq(key)
+        return self.cache[key][0]
+
+    def put(self, key: int, value: int):
+        if self.capacity <= 0:
+            return
+
+        if key in self.cache:
+            self.cache[key] = (value, self.cache[key][1])
+            self._update_freq(key)
+            return
+
+        if len(self.cache) >= self.capacity:
+            # Evict LFU (least frequent, oldest among ties)
+            lfu_keys = self.freq_map[self.min_freq]
+            evict_key = next(iter(lfu_keys))
+            del lfu_keys[evict_key]
+            if not lfu_keys:
+                del self.freq_map[self.min_freq]
+            del self.cache[evict_key]
+
+        self.cache[key] = (value, 1)
+        self.freq_map[1][key] = None
+        self.min_freq = 1
+
+# Usage
+cache = LFUCache(3)
+cache.put(1, 10)    # freq: {1: [1]}
+cache.put(2, 20)    # freq: {1: [1, 2]}
+cache.put(3, 30)    # freq: {1: [1, 2, 3]}
+cache.get(1)         # freq: {1: [2, 3], 2: [1]}
+cache.get(1)         # freq: {1: [2, 3], 3: [1]}
+cache.put(4, 40)     # Evicts key 2 (freq=1, oldest)
+print(cache.get(2))  # -1 (evicted)`}
+  java={`public class LFUCache {
+    private final int capacity;
+    private int minFreq = 0;
+    private final Map<Integer, int[]> cache = new HashMap<>(); // key → [val, freq]
+    private final Map<Integer, LinkedHashSet<Integer>> freqMap
+        = new HashMap<>();
+
+    public LFUCache(int capacity) {
+        this.capacity = capacity;
+    }
+
+    public int get(int key) {
+        if (!cache.containsKey(key)) return -1;
+        updateFreq(key);
+        return cache.get(key)[0];
+    }
+
+    public void put(int key, int value) {
+        if (capacity <= 0) return;
+        if (cache.containsKey(key)) {
+            cache.get(key)[0] = value;
+            updateFreq(key);
+            return;
+        }
+        if (cache.size() >= capacity) {
+            var keys = freqMap.get(minFreq);
+            int evict = keys.iterator().next();
+            keys.remove(evict);
+            if (keys.isEmpty()) freqMap.remove(minFreq);
+            cache.remove(evict);
+        }
+        cache.put(key, new int[]{value, 1});
+        freqMap.computeIfAbsent(1, k -> new LinkedHashSet<>()).add(key);
+        minFreq = 1;
+    }
+
+    private void updateFreq(int key) {
+        int freq = cache.get(key)[1];
+        freqMap.get(freq).remove(key);
+        if (freqMap.get(freq).isEmpty()) {
+            freqMap.remove(freq);
+            if (minFreq == freq) minFreq++;
+        }
+        cache.get(key)[1] = freq + 1;
+        freqMap.computeIfAbsent(freq + 1,
+            k -> new LinkedHashSet<>()).add(key);
+    }
+}`}
+  go={`// LRU is shown above; LFU follows similar structure
+// using frequency buckets with ordered sets per frequency.`}
+  cpp={`// See Python/Java implementations above.
+// Key insight: HashMap + frequency-to-LinkedHashSet mapping
+// enables O(1) operations for both get and put.`}
+/>
+
+---
+
+## 🧩 When to Use Each
+
+| Use LRU When | Use LFU When |
+|-------------|-------------|
+| Access patterns have temporal locality | Some items are inherently more popular |
+| Recent items are likely accessed again | Frequency matters more than recency |
+| Simple, predictable cache behavior | Willing to handle stale items |
+
+---
+
+## 🔗 Related Concepts
+
+- [Caching (HLD)](/concepts/hld/caching) — System-level caching strategies
+- [SOLID Principles](/concepts/lld/solid-principles) — Interface segregation for cache strategies
+- [Structural Patterns](/concepts/lld/structural-patterns) — Proxy pattern for caching layers
+
+---
+
+## 📝 Quick Quiz
+
+**Q1: Keys A (accessed 100 times 1 hour ago) and B (accessed 2 times just now) are in an LFU cache of size 2. Key C is inserted. Which is evicted?**
+
+A) Key A (least recently used)  B) Key B (least frequently used)
+
+**Answer: B** — LFU evicts by frequency. Key B has frequency 2 vs Key A's frequency 100. Key B is evicted regardless of recency.

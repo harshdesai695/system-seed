@@ -1,0 +1,260 @@
+# 🎯 What are Search Systems?
+
+**Search systems** enable users to find relevant information from massive datasets quickly. They work by building **inverted indexes** — data structures that map terms to the documents containing them — enabling sub-second full-text search across billions of documents.
+
+> **Real-world analogy:** The **index at the back of a textbook** is an inverted index. Instead of reading every page to find "photosynthesis," you look it up in the index, which says "pages 42, 78, 156." A search engine does the same thing, but for billions of web pages.
+
+---
+
+## 🌍 Real-World Example
+
+**Elasticsearch** powers search at GitHub, Wikipedia, Netflix, and Uber. GitHub uses it to let developers search across 200+ million repositories in milliseconds. When you type a query on GitHub, Elasticsearch scans its inverted index — not every file in every repo.
+
+---
+
+## 🔍 How Search Works
+
+### Indexing Pipeline
+
+1. **Crawl/Ingest** — Collect documents (web pages, products, logs)
+2. **Tokenize** — Break text into tokens: "The quick brown fox" → ["the", "quick", "brown", "fox"]
+3. **Normalize** — Lowercase, stem, remove stop words: "running" → "run"
+4. **Build Inverted Index** — Map each token to document IDs containing it
+5. **Store** — Save index for fast retrieval
+
+### Query Pipeline
+
+1. **Parse query** — Tokenize and normalize the search query
+2. **Lookup** — Find matching documents via inverted index
+3. **Score** — Rank results by relevance (TF-IDF or BM25)
+4. **Return** — Top K results with snippets
+
+---
+
+## 📊 Ranking Algorithms
+
+| Algorithm | Formula Concept | Use Case |
+|-----------|----------------|----------|
+| **TF-IDF** | Term frequency × Inverse doc frequency | General text search |
+| **BM25** | Improved TF-IDF with saturation | Elasticsearch default |
+| **PageRank** | Link-based authority scoring | Web search (Google) |
+| **Vector Search** | Cosine similarity of embeddings | Semantic/AI search |
+
+---
+
+## 💻 Code Example: Inverted Index Search Engine
+
+<CodeBlock
+  title="Simple Search Engine"
+  python={`import math
+from collections import defaultdict
+
+class SearchEngine:
+    def __init__(self):
+        self.documents: dict[int, str] = {}
+        self.index: dict[str, set[int]] = defaultdict(set)
+        self.doc_count = 0
+
+    def _tokenize(self, text: str) -> list[str]:
+        return text.lower().split()
+
+    def add_document(self, doc_id: int, content: str):
+        self.documents[doc_id] = content
+        self.doc_count += 1
+        for token in self._tokenize(content):
+            self.index[token].add(doc_id)
+
+    def search(self, query: str, top_k: int = 5) -> list:
+        tokens = self._tokenize(query)
+        scores: dict[int, float] = defaultdict(float)
+
+        for token in tokens:
+            if token not in self.index:
+                continue
+            # IDF: log(N / df)
+            df = len(self.index[token])
+            idf = math.log(self.doc_count / df)
+
+            for doc_id in self.index[token]:
+                # TF: count of token in document
+                tf = self.documents[doc_id].lower().count(token)
+                scores[doc_id] += tf * idf
+
+        ranked = sorted(scores.items(), key=lambda x: -x[1])
+        return ranked[:top_k]
+
+# Usage
+engine = SearchEngine()
+engine.add_document(1, "distributed systems are scalable")
+engine.add_document(2, "caching improves system performance")
+engine.add_document(3, "distributed caching is powerful")
+
+results = engine.search("distributed caching")
+for doc_id, score in results:
+    print(f"Doc {doc_id}: {score:.2f} — {engine.documents[doc_id]}")`}
+  java={`import java.util.*;
+
+public class SearchEngine {
+    private final Map<Integer, String> documents = new HashMap<>();
+    private final Map<String, Set<Integer>> index = new HashMap<>();
+    private int docCount = 0;
+
+    public void addDocument(int docId, String content) {
+        documents.put(docId, content);
+        docCount++;
+        for (String token : tokenize(content)) {
+            index.computeIfAbsent(token, k -> new HashSet<>())
+                 .add(docId);
+        }
+    }
+
+    public List<Map.Entry<Integer, Double>> search(String query) {
+        Map<Integer, Double> scores = new HashMap<>();
+        for (String token : tokenize(query)) {
+            Set<Integer> docs = index.get(token);
+            if (docs == null) continue;
+            double idf = Math.log((double) docCount / docs.size());
+
+            for (int docId : docs) {
+                long tf = Arrays.stream(
+                    documents.get(docId).toLowerCase().split("\\\\s+"))
+                    .filter(w -> w.equals(token)).count();
+                scores.merge(docId, tf * idf, Double::sum);
+            }
+        }
+        List<Map.Entry<Integer, Double>> ranked =
+            new ArrayList<>(scores.entrySet());
+        ranked.sort((a, b) -> Double.compare(b.getValue(), a.getValue()));
+        return ranked;
+    }
+
+    private String[] tokenize(String text) {
+        return text.toLowerCase().split("\\\\s+");
+    }
+}`}
+  go={`type SearchEngine struct {
+    documents map[int]string
+    index     map[string]map[int]bool
+    docCount  int
+}
+
+func NewSearchEngine() *SearchEngine {
+    return &SearchEngine{
+        documents: make(map[int]string),
+        index:     make(map[string]map[int]bool),
+    }
+}
+
+func (se *SearchEngine) AddDocument(docID int, content string) {
+    se.documents[docID] = content
+    se.docCount++
+    for _, token := range strings.Fields(strings.ToLower(content)) {
+        if se.index[token] == nil {
+            se.index[token] = make(map[int]bool)
+        }
+        se.index[token][docID] = true
+    }
+}
+
+func (se *SearchEngine) Search(query string) []Result {
+    scores := make(map[int]float64)
+    for _, token := range strings.Fields(strings.ToLower(query)) {
+        docs := se.index[token]
+        if len(docs) == 0 {
+            continue
+        }
+        idf := math.Log(float64(se.docCount) / float64(len(docs)))
+        for docID := range docs {
+            tf := float64(strings.Count(
+                strings.ToLower(se.documents[docID]), token))
+            scores[docID] += tf * idf
+        }
+    }
+    // Sort by score descending
+    var results []Result
+    for id, score := range scores {
+        results = append(results, Result{id, score})
+    }
+    sort.Slice(results, func(i, j int) bool {
+        return results[i].Score > results[j].Score
+    })
+    return results
+}`}
+  cpp={`class SearchEngine {
+    std::map<int, std::string> documents_;
+    std::map<std::string, std::set<int>> index_;
+    int docCount_ = 0;
+
+public:
+    void addDocument(int docId, const std::string& content) {
+        documents_[docId] = content;
+        docCount_++;
+        std::istringstream iss(content);
+        std::string word;
+        while (iss >> word) {
+            std::transform(word.begin(), word.end(),
+                           word.begin(), ::tolower);
+            index_[word].insert(docId);
+        }
+    }
+
+    std::vector<std::pair<int, double>> search(
+            const std::string& query) {
+        std::map<int, double> scores;
+        std::istringstream iss(query);
+        std::string token;
+        while (iss >> token) {
+            std::transform(token.begin(), token.end(),
+                           token.begin(), ::tolower);
+            auto it = index_.find(token);
+            if (it == index_.end()) continue;
+            double idf = std::log(
+                (double)docCount_ / it->second.size());
+            for (int docId : it->second) {
+                scores[docId] += idf; // simplified
+            }
+        }
+        std::vector<std::pair<int, double>> result(
+            scores.begin(), scores.end());
+        std::sort(result.begin(), result.end(),
+            [](auto& a, auto& b) { return a.second > b.second; });
+        return result;
+    }
+};`}
+/>
+
+---
+
+## ⚖️ Pros & Cons
+
+| Pros ✅ | Cons ❌ |
+|---------|---------|
+| Sub-second search across billions of docs | Index storage overhead |
+| Typo tolerance & fuzzy matching | Index rebuild can be slow |
+| Faceted search & aggregations | Eventual consistency of index |
+| Scales horizontally | Complex relevance tuning |
+
+---
+
+## 🧩 When to Use
+
+- **Use when:** Full-text search, product search, log analysis, autocomplete
+- **Avoid when:** Simple exact-match lookups (use a hash map/database index instead)
+
+---
+
+## 🔗 Related Concepts
+
+- [Database Design](/concepts/hld/database-design) — Search indexes complement database indexes
+- [Scalability](/concepts/hld/scalability) — Sharding search indexes across nodes
+- [CDN](/concepts/hld/cdn) — Cache popular search results at the edge
+
+---
+
+## 📝 Quick Quiz
+
+**Q1: You search "running shoes" but also want results containing "ran" and "shoe." What technique enables this?**
+
+A) Exact match  B) Stemming (reducing words to their root form)
+
+**Answer: B** — Stemming converts "running" → "run" and "shoes" → "shoe" during both indexing and querying, so related word forms match.

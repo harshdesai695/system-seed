@@ -1,0 +1,304 @@
+# 🎯 Social Media Feed Design
+
+Design an **Object-Oriented Social Media Feed System** that supports creating posts, following users, generating personalized feeds, and handling interactions (likes, comments).
+
+> **Real-world analogy:** Instagram or Twitter — you follow people, their posts appear in your feed sorted by time or relevance, and you can like, comment, and share.
+
+---
+
+## 📋 Requirements
+
+### Functional
+- Users can create text/image posts
+- Follow/unfollow other users
+- Generate a personalized news feed (posts from followed users)
+- Like and comment on posts
+- Feed pagination (load more)
+
+---
+
+## 🔍 Feed Generation Strategies
+
+| Strategy | How It Works | Pros | Cons |
+|----------|-------------|------|------|
+| **Pull (Fan-out on read)** | Fetch posts from followed users at query time | Simple, fresh data | Slow for users following many people |
+| **Push (Fan-out on write)** | Pre-compute feed when a post is created | Fast reads | Expensive for celebrities (many followers) |
+| **Hybrid** | Push for normal users, pull for celebrities | Balanced | Complex |
+
+---
+
+## 💻 Code Example
+
+<CodeBlock
+  title="Social Media Feed"
+  python={`from dataclasses import dataclass, field
+from datetime import datetime
+from typing import Optional
+from collections import defaultdict
+
+@dataclass
+class Post:
+    post_id: str
+    author_id: str
+    content: str
+    created_at: datetime = field(default_factory=datetime.now)
+    likes: set[str] = field(default_factory=set)
+    comments: list = field(default_factory=list)
+
+    def like(self, user_id: str):
+        self.likes.add(user_id)
+
+    def unlike(self, user_id: str):
+        self.likes.discard(user_id)
+
+    def add_comment(self, user_id: str, text: str):
+        self.comments.append({
+            "user_id": user_id,
+            "text": text,
+            "created_at": datetime.now()
+        })
+
+@dataclass
+class User:
+    user_id: str
+    username: str
+    following: set[str] = field(default_factory=set)
+    followers: set[str] = field(default_factory=set)
+
+    def follow(self, other: 'User'):
+        self.following.add(other.user_id)
+        other.followers.add(self.user_id)
+
+    def unfollow(self, other: 'User'):
+        self.following.discard(other.user_id)
+        other.followers.discard(self.user_id)
+
+class FeedService:
+    def __init__(self):
+        self._users: dict[str, User] = {}
+        self._posts: dict[str, Post] = {}
+        self._user_posts: dict[str, list[str]] = defaultdict(list)
+        self._feed_cache: dict[str, list[str]] = defaultdict(list)
+        self._counter = 0
+
+    def register_user(self, user_id: str, username: str) -> User:
+        user = User(user_id, username)
+        self._users[user_id] = user
+        return user
+
+    def create_post(self, author_id: str, content: str) -> Post:
+        self._counter += 1
+        post_id = f"P-{self._counter:06d}"
+        post = Post(post_id, author_id, content)
+        self._posts[post_id] = post
+        self._user_posts[author_id].append(post_id)
+
+        # Fan-out on write: push to followers' feeds
+        author = self._users[author_id]
+        for follower_id in author.followers:
+            self._feed_cache[follower_id].insert(0, post_id)
+            # Keep feed cache bounded
+            self._feed_cache[follower_id] = \
+                self._feed_cache[follower_id][:200]
+
+        return post
+
+    def get_feed(self, user_id: str, page: int = 0,
+                 page_size: int = 10) -> list[Post]:
+        """Get personalized feed for a user."""
+        # Try cache first (fan-out on write)
+        cached = self._feed_cache.get(user_id, [])
+        if cached:
+            start = page * page_size
+            end = start + page_size
+            post_ids = cached[start:end]
+            return [self._posts[pid] for pid in post_ids
+                    if pid in self._posts]
+
+        # Fallback: fan-out on read
+        user = self._users.get(user_id)
+        if not user:
+            return []
+
+        all_posts = []
+        for followed_id in user.following:
+            for post_id in self._user_posts.get(followed_id, []):
+                all_posts.append(self._posts[post_id])
+
+        all_posts.sort(key=lambda p: p.created_at, reverse=True)
+        start = page * page_size
+        return all_posts[start:start + page_size]
+
+    def like_post(self, user_id: str, post_id: str):
+        post = self._posts.get(post_id)
+        if post:
+            post.like(user_id)
+
+    def comment_on_post(self, user_id: str, post_id: str,
+                        text: str):
+        post = self._posts.get(post_id)
+        if post:
+            post.add_comment(user_id, text)
+
+# Usage
+service = FeedService()
+alice = service.register_user("u1", "alice")
+bob = service.register_user("u2", "bob")
+charlie = service.register_user("u3", "charlie")
+
+bob.follow(alice)
+charlie.follow(alice)
+
+service.create_post("u1", "Hello from Alice! 🎉")
+service.create_post("u1", "Learning system design today!")
+
+# Bob's feed shows Alice's posts (he follows her)
+feed = service.get_feed("u2")
+for post in feed:
+    print(f"  {post.content} (♥ {len(post.likes)})")
+
+service.like_post("u2", feed[0].post_id)
+service.comment_on_post("u2", feed[0].post_id, "Great post!")`}
+  java={`public class FeedService {
+    private final Map<String, User> users = new ConcurrentHashMap<>();
+    private final Map<String, Post> posts = new ConcurrentHashMap<>();
+    private final Map<String, List<String>> userPosts
+        = new ConcurrentHashMap<>();
+    private final Map<String, LinkedList<String>> feedCache
+        = new ConcurrentHashMap<>();
+    private final AtomicInteger counter = new AtomicInteger(0);
+
+    public Post createPost(String authorId, String content) {
+        String postId = "P-" + counter.incrementAndGet();
+        Post post = new Post(postId, authorId, content);
+        posts.put(postId, post);
+        userPosts.computeIfAbsent(authorId,
+            k -> new ArrayList<>()).add(postId);
+
+        // Fan-out on write
+        User author = users.get(authorId);
+        for (String followerId : author.getFollowers()) {
+            feedCache.computeIfAbsent(followerId,
+                k -> new LinkedList<>()).addFirst(postId);
+        }
+        return post;
+    }
+
+    public List<Post> getFeed(String userId, int page,
+                              int pageSize) {
+        var cached = feedCache.getOrDefault(userId, new LinkedList<>());
+        int start = page * pageSize;
+        int end = Math.min(start + pageSize, cached.size());
+        if (start >= cached.size()) return List.of();
+
+        return cached.subList(start, end).stream()
+            .map(posts::get)
+            .filter(Objects::nonNull)
+            .toList();
+    }
+}`}
+  go={`type FeedService struct {
+    users     map[string]*User
+    posts     map[string]*Post
+    userPosts map[string][]string
+    feedCache map[string][]string
+    counter   int
+    mu        sync.RWMutex
+}
+
+func (fs *FeedService) CreatePost(authorID, content string) *Post {
+    fs.mu.Lock()
+    defer fs.mu.Unlock()
+
+    fs.counter++
+    postID := fmt.Sprintf("P-%06d", fs.counter)
+    post := &Post{ID: postID, AuthorID: authorID,
+        Content: content, CreatedAt: time.Now(),
+        Likes: make(map[string]bool)}
+    fs.posts[postID] = post
+    fs.userPosts[authorID] = append(fs.userPosts[authorID], postID)
+
+    // Fan-out on write
+    author := fs.users[authorID]
+    for followerID := range author.Followers {
+        fs.feedCache[followerID] = append(
+            []string{postID}, fs.feedCache[followerID]...)
+    }
+    return post
+}
+
+func (fs *FeedService) GetFeed(userID string, page,
+        size int) []*Post {
+    fs.mu.RLock()
+    defer fs.mu.RUnlock()
+
+    cached := fs.feedCache[userID]
+    start := page * size
+    end := start + size
+    if start >= len(cached) { return nil }
+    if end > len(cached) { end = len(cached) }
+
+    var result []*Post
+    for _, pid := range cached[start:end] {
+        if post, ok := fs.posts[pid]; ok {
+            result = append(result, post)
+        }
+    }
+    return result
+}`}
+  cpp={`class FeedService {
+    std::map<std::string, User> users_;
+    std::map<std::string, Post> posts_;
+    std::map<std::string, std::vector<std::string>> userPosts_;
+    std::map<std::string, std::deque<std::string>> feedCache_;
+    int counter_ = 0;
+    std::mutex mu_;
+
+public:
+    Post createPost(const std::string& authorId,
+                    const std::string& content) {
+        std::lock_guard<std::mutex> lock(mu_);
+        counter_++;
+        std::string postId = "P-" + std::to_string(counter_);
+        Post post{postId, authorId, content};
+        posts_[postId] = post;
+        userPosts_[authorId].push_back(postId);
+
+        // Fan-out on write
+        for (auto& followerId : users_[authorId].followers) {
+            feedCache_[followerId].push_front(postId);
+        }
+        return post;
+    }
+
+    std::vector<Post> getFeed(const std::string& userId,
+            int page, int size) {
+        auto& cache = feedCache_[userId];
+        int start = page * size;
+        std::vector<Post> result;
+        for (int i = start; i < start + size
+                && i < (int)cache.size(); i++) {
+            result.push_back(posts_[cache[i]]);
+        }
+        return result;
+    }
+};`}
+/>
+
+---
+
+## 🔗 Related Concepts
+
+- [Caching](/concepts/hld/caching) — Feed caching for fast reads
+- [Message Queues](/concepts/hld/message-queues) — Async fan-out on write
+- [Database Design](/concepts/hld/database-design) — Schema for users, posts, follows
+
+---
+
+## 📝 Quick Quiz
+
+**Q1: A celebrity with 10 million followers creates a post. Using fan-out on write, what problem occurs?**
+
+A) No problem  B) Writing to 10 million feed caches is extremely slow
+
+**Answer: B** — Fan-out on write means inserting the post ID into 10 million users' feed caches. This is slow and expensive. For celebrities, use fan-out on read (pull model) instead — a hybrid approach.

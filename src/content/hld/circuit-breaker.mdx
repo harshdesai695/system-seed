@@ -1,0 +1,301 @@
+# 🎯 What is the Circuit Breaker Pattern?
+
+The **Circuit Breaker** pattern prevents an application from repeatedly trying to execute an operation that's likely to fail. Like an electrical circuit breaker that trips to prevent damage, it stops cascading failures in distributed systems.
+
+> **Real-world analogy:** When a fuse blows in your house, it **cuts power** to prevent an electrical fire. You don't keep flipping the switch. Instead, you wait, fix the problem, and then reset. A circuit breaker in software does the same — it stops calling a failing service, waits, then cautiously retries.
+
+---
+
+## 🌍 Real-World Example
+
+**Netflix** pioneered the circuit breaker pattern with **Hystrix**. When their recommendation service goes down, instead of every request hanging for 30 seconds (causing cascading timeouts), the circuit breaker trips immediately, returning a cached/default recommendation list while the service recovers.
+
+---
+
+## 🔍 Three States of a Circuit Breaker
+
+### 1. **CLOSED** (Normal)
+- Requests flow through normally
+- Failures are counted
+- If failures exceed threshold → switch to OPEN
+
+### 2. **OPEN** (Tripped)
+- All requests fail immediately (fast fail)
+- No calls to the downstream service
+- After a timeout → switch to HALF-OPEN
+
+### 3. **HALF-OPEN** (Testing)
+- Allow a limited number of test requests through
+- If they succeed → switch back to CLOSED ✅
+- If they fail → switch back to OPEN ❌
+
+---
+
+## 📊 State Transitions
+
+| From | To | Trigger |
+|------|----|---------|
+| CLOSED | OPEN | Failure count exceeds threshold |
+| OPEN | HALF-OPEN | Timeout period expires |
+| HALF-OPEN | CLOSED | Test requests succeed |
+| HALF-OPEN | OPEN | Test requests fail |
+
+---
+
+## 💻 Code Example: Circuit Breaker Implementation
+
+<CodeBlock
+  title="Circuit Breaker"
+  python={`import time
+from enum import Enum
+from typing import Callable, Any
+
+class State(Enum):
+    CLOSED = "CLOSED"
+    OPEN = "OPEN"
+    HALF_OPEN = "HALF_OPEN"
+
+class CircuitBreaker:
+    def __init__(self, failure_threshold: int = 5,
+                 recovery_timeout: float = 30.0,
+                 half_open_max: int = 3):
+        self.failure_threshold = failure_threshold
+        self.recovery_timeout = recovery_timeout
+        self.half_open_max = half_open_max
+        self.state = State.CLOSED
+        self.failure_count = 0
+        self.last_failure_time = 0.0
+        self.half_open_calls = 0
+
+    def call(self, func: Callable, *args, **kwargs) -> Any:
+        if self.state == State.OPEN:
+            if time.time() - self.last_failure_time > self.recovery_timeout:
+                self.state = State.HALF_OPEN
+                self.half_open_calls = 0
+                print("⚡ Circuit → HALF_OPEN")
+            else:
+                raise Exception("Circuit is OPEN — fast fail")
+
+        if self.state == State.HALF_OPEN:
+            if self.half_open_calls >= self.half_open_max:
+                raise Exception("Half-open limit reached")
+            self.half_open_calls += 1
+
+        try:
+            result = func(*args, **kwargs)
+            self._on_success()
+            return result
+        except Exception as e:
+            self._on_failure()
+            raise e
+
+    def _on_success(self):
+        if self.state == State.HALF_OPEN:
+            self.state = State.CLOSED
+            print("✅ Circuit → CLOSED")
+        self.failure_count = 0
+
+    def _on_failure(self):
+        self.failure_count += 1
+        self.last_failure_time = time.time()
+        if self.failure_count >= self.failure_threshold:
+            self.state = State.OPEN
+            print(f"🔴 Circuit → OPEN (failures: {self.failure_count})")
+
+# Usage
+breaker = CircuitBreaker(failure_threshold=3, recovery_timeout=10)
+try:
+    result = breaker.call(some_external_api_call)
+except Exception:
+    return fallback_response()`}
+  java={`import java.util.concurrent.atomic.*;
+import java.util.function.Supplier;
+
+public class CircuitBreaker {
+    enum State { CLOSED, OPEN, HALF_OPEN }
+
+    private volatile State state = State.CLOSED;
+    private final AtomicInteger failureCount = new AtomicInteger(0);
+    private volatile long lastFailureTime = 0;
+    private final int failureThreshold;
+    private final long recoveryTimeoutMs;
+
+    public CircuitBreaker(int threshold, long timeoutMs) {
+        this.failureThreshold = threshold;
+        this.recoveryTimeoutMs = timeoutMs;
+    }
+
+    public <T> T call(Supplier<T> supplier) {
+        if (state == State.OPEN) {
+            if (System.currentTimeMillis() - lastFailureTime
+                    > recoveryTimeoutMs) {
+                state = State.HALF_OPEN;
+            } else {
+                throw new RuntimeException("Circuit OPEN");
+            }
+        }
+
+        try {
+            T result = supplier.get();
+            onSuccess();
+            return result;
+        } catch (Exception e) {
+            onFailure();
+            throw e;
+        }
+    }
+
+    private void onSuccess() {
+        failureCount.set(0);
+        if (state == State.HALF_OPEN) {
+            state = State.CLOSED;
+        }
+    }
+
+    private void onFailure() {
+        lastFailureTime = System.currentTimeMillis();
+        if (failureCount.incrementAndGet() >= failureThreshold) {
+            state = State.OPEN;
+        }
+    }
+}`}
+  go={`type State int
+
+const (
+    Closed State = iota
+    Open
+    HalfOpen
+)
+
+type CircuitBreaker struct {
+    mu               sync.Mutex
+    state            State
+    failureCount     int
+    failureThreshold int
+    recoveryTimeout  time.Duration
+    lastFailure      time.Time
+}
+
+func NewCircuitBreaker(threshold int,
+        timeout time.Duration) *CircuitBreaker {
+    return &CircuitBreaker{
+        state:            Closed,
+        failureThreshold: threshold,
+        recoveryTimeout:  timeout,
+    }
+}
+
+func (cb *CircuitBreaker) Call(fn func() (interface{}, error),
+        ) (interface{}, error) {
+    cb.mu.Lock()
+    if cb.state == Open {
+        if time.Since(cb.lastFailure) > cb.recoveryTimeout {
+            cb.state = HalfOpen
+        } else {
+            cb.mu.Unlock()
+            return nil, fmt.Errorf("circuit is OPEN")
+        }
+    }
+    cb.mu.Unlock()
+
+    result, err := fn()
+    cb.mu.Lock()
+    defer cb.mu.Unlock()
+
+    if err != nil {
+        cb.failureCount++
+        cb.lastFailure = time.Now()
+        if cb.failureCount >= cb.failureThreshold {
+            cb.state = Open
+        }
+        return nil, err
+    }
+
+    cb.failureCount = 0
+    if cb.state == HalfOpen {
+        cb.state = Closed
+    }
+    return result, nil
+}`}
+  cpp={`class CircuitBreaker {
+    enum class State { CLOSED, OPEN, HALF_OPEN };
+
+    State state_ = State::CLOSED;
+    int failureCount_ = 0;
+    int failureThreshold_;
+    std::chrono::seconds recoveryTimeout_;
+    std::chrono::steady_clock::time_point lastFailure_;
+    std::mutex mu_;
+
+public:
+    CircuitBreaker(int threshold, int timeoutSec)
+        : failureThreshold_(threshold),
+          recoveryTimeout_(timeoutSec) {}
+
+    template<typename Func>
+    auto call(Func fn) -> decltype(fn()) {
+        {
+            std::lock_guard<std::mutex> lock(mu_);
+            if (state_ == State::OPEN) {
+                auto elapsed = std::chrono::steady_clock::now()
+                    - lastFailure_;
+                if (elapsed > recoveryTimeout_)
+                    state_ = State::HALF_OPEN;
+                else
+                    throw std::runtime_error("Circuit OPEN");
+            }
+        }
+        try {
+            auto result = fn();
+            std::lock_guard<std::mutex> lock(mu_);
+            failureCount_ = 0;
+            if (state_ == State::HALF_OPEN)
+                state_ = State::CLOSED;
+            return result;
+        } catch (...) {
+            std::lock_guard<std::mutex> lock(mu_);
+            failureCount_++;
+            lastFailure_ = std::chrono::steady_clock::now();
+            if (failureCount_ >= failureThreshold_)
+                state_ = State::OPEN;
+            throw;
+        }
+    }
+};`}
+/>
+
+---
+
+## ⚖️ Pros & Cons
+
+| Pros ✅ | Cons ❌ |
+|---------|---------|
+| Prevents cascading failures | Adds complexity |
+| Fast failure (no hanging requests) | Needs careful threshold tuning |
+| Gives failing services time to recover | May hide real issues |
+| Enables graceful degradation | False positives during network blips |
+
+---
+
+## 🧩 When to Use
+
+- **Use when:** Calling external APIs, database connections, microservice-to-microservice communication
+- **Avoid when:** Local function calls, operations that can't have fallbacks
+
+---
+
+## 🔗 Related Concepts
+
+- [Rate Limiting](/concepts/hld/rate-limiting) — Protects services from being overwhelmed
+- [Heartbeat](/concepts/hld/heartbeat) — Detects failures that trigger circuit breakers
+- [Microservices](/concepts/hld/microservices) — Circuit breakers are essential in microservice architectures
+
+---
+
+## 📝 Quick Quiz
+
+**Q1: Your payment service is timing out. Hundreds of requests queue up, and your entire app slows down. What pattern helps?**
+
+A) Retry every request faster  B) Circuit breaker to fail fast and return fallback
+
+**Answer: B** — The circuit breaker trips after a few failures, immediately returning a graceful error or fallback instead of letting hundreds of requests pile up.

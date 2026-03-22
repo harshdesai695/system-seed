@@ -1,0 +1,358 @@
+# 🎯 Elevator System Design
+
+Design an **Object-Oriented Elevator System** for a multi-floor building that efficiently handles passenger requests, manages multiple elevators, and optimizes wait times.
+
+> **Real-world analogy:** A real elevator system in a 20-story office building — passengers press buttons, the system dispatches the nearest elevator, handles multiple concurrent requests, and each car tracks its own direction and queue.
+
+---
+
+## 📋 Requirements
+
+### Functional
+- Support multiple elevators in a building
+- Handle both external (floor button) and internal (car button) requests
+- Move elevators up/down, open/close doors
+- Display current floor and direction
+- Dispatch the optimal elevator for each request
+
+### Non-Functional
+- Minimize average wait time
+- Thread-safe for concurrent requests
+- Handle edge cases (overweight, door obstruction)
+
+---
+
+## 🔍 Class Design
+
+| Class | Responsibility |
+|-------|---------------|
+| `ElevatorSystem` | Manages all elevators and dispatching |
+| `Elevator` | Single elevator car with state, direction, queue |
+| `Request` | Represents a floor request (internal or external) |
+| `Direction` | Enum: UP, DOWN, IDLE |
+| `Dispatcher` | Strategy for choosing which elevator to send |
+
+---
+
+## 💻 Code Example
+
+<CodeBlock
+  title="Elevator System"
+  python={`from enum import Enum
+from dataclasses import dataclass
+import threading
+import heapq
+
+class Direction(Enum):
+    UP = 1
+    DOWN = -1
+    IDLE = 0
+
+@dataclass
+class Request:
+    floor: int
+    direction: Direction | None = None  # None for internal requests
+
+class Elevator:
+    def __init__(self, elevator_id: int, max_floor: int):
+        self.id = elevator_id
+        self.current_floor = 1
+        self.direction = Direction.IDLE
+        self.max_floor = max_floor
+        self._up_stops: set[int] = set()
+        self._down_stops: set[int] = set()
+        self._lock = threading.Lock()
+
+    def add_request(self, floor: int):
+        with self._lock:
+            if floor > self.current_floor:
+                self._up_stops.add(floor)
+            elif floor < self.current_floor:
+                self._down_stops.add(floor)
+            # Same floor — open doors immediately
+
+    def step(self) -> str | None:
+        """Move one floor in current direction. Returns action."""
+        with self._lock:
+            if self.direction == Direction.UP:
+                if self.current_floor in self._up_stops:
+                    self._up_stops.discard(self.current_floor)
+                    return f"Elevator {self.id}: STOP at floor {self.current_floor}"
+                if self._up_stops:
+                    self.current_floor += 1
+                else:
+                    self.direction = Direction.DOWN if self._down_stops else Direction.IDLE
+
+            elif self.direction == Direction.DOWN:
+                if self.current_floor in self._down_stops:
+                    self._down_stops.discard(self.current_floor)
+                    return f"Elevator {self.id}: STOP at floor {self.current_floor}"
+                if self._down_stops:
+                    self.current_floor -= 1
+                else:
+                    self.direction = Direction.UP if self._up_stops else Direction.IDLE
+
+            elif self.direction == Direction.IDLE:
+                if self._up_stops:
+                    self.direction = Direction.UP
+                elif self._down_stops:
+                    self.direction = Direction.DOWN
+
+            return None
+
+    @property
+    def is_idle(self) -> bool:
+        return (self.direction == Direction.IDLE
+                and not self._up_stops and not self._down_stops)
+
+    def distance_to(self, floor: int) -> int:
+        return abs(self.current_floor - floor)
+
+class ElevatorSystem:
+    def __init__(self, num_elevators: int, num_floors: int):
+        self.elevators = [
+            Elevator(i + 1, num_floors)
+            for i in range(num_elevators)
+        ]
+        self.num_floors = num_floors
+
+    def request_elevator(self, floor: int,
+                         direction: Direction = Direction.UP):
+        """Dispatch nearest suitable elevator."""
+        best = min(self.elevators, key=lambda e: (
+            0 if e.is_idle else 1,  # Prefer idle
+            e.distance_to(floor),    # Then nearest
+        ))
+        best.add_request(floor)
+        if best.is_idle:
+            if floor > best.current_floor:
+                best.direction = Direction.UP
+            elif floor < best.current_floor:
+                best.direction = Direction.DOWN
+        print(f"📍 Floor {floor} → Elevator {best.id}"
+              f" (at floor {best.current_floor})")
+
+    def press_floor_button(self, elevator_id: int, floor: int):
+        """Passenger inside elevator presses a floor button."""
+        elevator = self.elevators[elevator_id - 1]
+        elevator.add_request(floor)
+
+    def simulate_step(self):
+        for elevator in self.elevators:
+            action = elevator.step()
+            if action:
+                print(action)
+
+# Usage
+system = ElevatorSystem(num_elevators=3, num_floors=20)
+system.request_elevator(5, Direction.UP)
+system.request_elevator(12, Direction.DOWN)
+system.press_floor_button(1, 10)
+
+for _ in range(15):
+    system.simulate_step()`}
+  java={`public class ElevatorSystem {
+    private final List<Elevator> elevators;
+
+    public ElevatorSystem(int numElevators, int numFloors) {
+        elevators = new ArrayList<>();
+        for (int i = 0; i < numElevators; i++) {
+            elevators.add(new Elevator(i + 1, numFloors));
+        }
+    }
+
+    public void requestElevator(int floor) {
+        Elevator best = elevators.stream()
+            .min(Comparator.comparingInt(e ->
+                e.isIdle() ? 0 : 1)
+            .thenComparingInt(e -> e.distanceTo(floor)))
+            .orElseThrow();
+
+        best.addRequest(floor);
+        System.out.printf("Floor %d → Elevator %d%n",
+            floor, best.getId());
+    }
+}
+
+class Elevator {
+    private final int id;
+    private int currentFloor = 1;
+    private Direction direction = Direction.IDLE;
+    private final TreeSet<Integer> upStops = new TreeSet<>();
+    private final TreeSet<Integer> downStops = new TreeSet<>();
+    private final ReentrantLock lock = new ReentrantLock();
+
+    public void addRequest(int floor) {
+        lock.lock();
+        try {
+            if (floor > currentFloor) upStops.add(floor);
+            else if (floor < currentFloor) downStops.add(floor);
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    public void step() {
+        lock.lock();
+        try {
+            if (direction == Direction.UP && upStops.contains(currentFloor)) {
+                upStops.remove(currentFloor);
+                System.out.printf("Elevator %d: STOP floor %d%n",
+                    id, currentFloor);
+            } else if (direction == Direction.UP && !upStops.isEmpty()) {
+                currentFloor++;
+            } else if (direction == Direction.DOWN
+                    && downStops.contains(currentFloor)) {
+                downStops.remove(currentFloor);
+            } else if (direction == Direction.DOWN
+                    && !downStops.isEmpty()) {
+                currentFloor--;
+            } else {
+                direction = !upStops.isEmpty() ? Direction.UP
+                    : !downStops.isEmpty() ? Direction.DOWN
+                    : Direction.IDLE;
+            }
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    public int distanceTo(int floor) {
+        return Math.abs(currentFloor - floor);
+    }
+
+    public boolean isIdle() {
+        return direction == Direction.IDLE
+            && upStops.isEmpty() && downStops.isEmpty();
+    }
+}`}
+  go={`type Direction int
+
+const (
+    Idle Direction = iota
+    Up
+    Down
+)
+
+type Elevator struct {
+    ID           int
+    CurrentFloor int
+    Direction    Direction
+    UpStops      map[int]bool
+    DownStops    map[int]bool
+    mu           sync.Mutex
+}
+
+func (e *Elevator) AddRequest(floor int) {
+    e.mu.Lock()
+    defer e.mu.Unlock()
+    if floor > e.CurrentFloor {
+        e.UpStops[floor] = true
+    } else if floor < e.CurrentFloor {
+        e.DownStops[floor] = true
+    }
+}
+
+func (e *Elevator) DistanceTo(floor int) int {
+    diff := e.CurrentFloor - floor
+    if diff < 0 {
+        return -diff
+    }
+    return diff
+}
+
+type ElevatorSystem struct {
+    Elevators []*Elevator
+}
+
+func (es *ElevatorSystem) RequestElevator(floor int) {
+    var best *Elevator
+    bestDist := math.MaxInt32
+    for _, e := range es.Elevators {
+        d := e.DistanceTo(floor)
+        if e.Direction == Idle {
+            d -= 1000 // Prefer idle
+        }
+        if d < bestDist {
+            bestDist = d
+            best = e
+        }
+    }
+    if best != nil {
+        best.AddRequest(floor)
+    }
+}`}
+  cpp={`class Elevator {
+    int id_, currentFloor_ = 1;
+    Direction direction_ = Direction::IDLE;
+    std::set<int> upStops_, downStops_;
+    std::mutex mu_;
+
+public:
+    Elevator(int id) : id_(id) {}
+
+    void addRequest(int floor) {
+        std::lock_guard<std::mutex> lock(mu_);
+        if (floor > currentFloor_) upStops_.insert(floor);
+        else if (floor < currentFloor_) downStops_.insert(floor);
+    }
+
+    int distanceTo(int floor) const {
+        return std::abs(currentFloor_ - floor);
+    }
+
+    bool isIdle() const {
+        return direction_ == Direction::IDLE
+            && upStops_.empty() && downStops_.empty();
+    }
+};
+
+class ElevatorSystem {
+    std::vector<std::unique_ptr<Elevator>> elevators_;
+
+public:
+    ElevatorSystem(int num, int floors) {
+        for (int i = 0; i < num; i++)
+            elevators_.push_back(std::make_unique<Elevator>(i + 1));
+    }
+
+    void requestElevator(int floor) {
+        Elevator* best = nullptr;
+        int bestDist = INT_MAX;
+        for (auto& e : elevators_) {
+            int d = e->distanceTo(floor) + (e->isIdle() ? 0 : 100);
+            if (d < bestDist) { bestDist = d; best = e.get(); }
+        }
+        if (best) best->addRequest(floor);
+    }
+};`}
+/>
+
+---
+
+## 📊 Dispatching Algorithms
+
+| Algorithm | How It Works | Efficiency |
+|-----------|-------------|------------|
+| **FCFS** | First come first served | Fair but slow |
+| **SCAN (Elevator)** | Go up, then down, servicing requests | Good for uniform traffic |
+| **LOOK** | Like SCAN but reverses at last request | Better than SCAN |
+| **Nearest Car** | Send closest idle/same-direction car | Best for low traffic |
+
+---
+
+## 🔗 Related Concepts
+
+- [SOLID Principles](/concepts/lld/solid-principles) — Single Responsibility per class
+- [Behavioral Patterns](/concepts/lld/behavioral-patterns) — State pattern for elevator states
+- [UML Diagrams](/concepts/lld/uml-diagrams) — Sequence diagram for request flow
+
+---
+
+## 📝 Quick Quiz
+
+**Q1: Elevator 1 is on floor 3 going UP. Elevator 2 is on floor 8, IDLE. A request comes from floor 6 going UP. Which elevator should respond?**
+
+A) Elevator 1 (same direction)  B) Elevator 2 (closer)
+
+**Answer: A** — Elevator 1 is going UP and will pass floor 6. Elevator 2 is closer but idle. The SCAN algorithm prefers servicing requests in the current travel direction to avoid unnecessary direction changes.

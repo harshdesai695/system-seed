@@ -1,0 +1,334 @@
+# 🎯 Logging Framework Design
+
+Design an **Object-Oriented Logging Framework** with configurable log levels, multiple output handlers, structured formatting, and thread safety.
+
+> **Real-world analogy:** A ship's captain's log — events are recorded with timestamps, severity (routine vs emergency), and routed to different destinations (logbook, radio, flag signals) based on importance.
+
+---
+
+## 📋 Requirements
+
+### Functional
+- Support log levels: DEBUG, INFO, WARN, ERROR, FATAL
+- Multiple output handlers (console, file, remote)
+- Configurable log format (timestamp, level, message, context)
+- Thread-safe logging
+- Log filtering by level
+- Structured logging (key-value context)
+
+---
+
+## 🔍 Class Design
+
+| Class | Responsibility |
+|-------|---------------|
+| `Logger` | Main interface — accepts log messages |
+| `LogLevel` | Enum defining severity levels |
+| `LogRecord` | Data structure for a single log entry |
+| `Handler` | Abstract base for output destinations |
+| `Formatter` | Formats LogRecord into string |
+
+---
+
+## 💻 Code Example
+
+<CodeBlock
+  title="Logging Framework"
+  python={`from abc import ABC, abstractmethod
+from enum import IntEnum
+from dataclasses import dataclass, field
+from datetime import datetime
+import threading
+import json
+
+class LogLevel(IntEnum):
+    DEBUG = 10
+    INFO = 20
+    WARN = 30
+    ERROR = 40
+    FATAL = 50
+
+@dataclass
+class LogRecord:
+    level: LogLevel
+    message: str
+    logger_name: str
+    timestamp: datetime = field(default_factory=datetime.now)
+    context: dict = field(default_factory=dict)
+    thread_name: str = field(
+        default_factory=lambda: threading.current_thread().name)
+
+# ═══════ FORMATTER (Strategy Pattern) ═══════
+class Formatter(ABC):
+    @abstractmethod
+    def format(self, record: LogRecord) -> str: ...
+
+class TextFormatter(Formatter):
+    def format(self, record: LogRecord) -> str:
+        ts = record.timestamp.strftime("%Y-%m-%d %H:%M:%S")
+        ctx = ""
+        if record.context:
+            ctx = " " + " ".join(
+                f"{k}={v}" for k, v in record.context.items())
+        return (f"[{ts}] [{record.level.name:5s}] "
+                f"[{record.logger_name}] {record.message}{ctx}")
+
+class JSONFormatter(Formatter):
+    def format(self, record: LogRecord) -> str:
+        return json.dumps({
+            "timestamp": record.timestamp.isoformat(),
+            "level": record.level.name,
+            "logger": record.logger_name,
+            "message": record.message,
+            "thread": record.thread_name,
+            **record.context,
+        })
+
+# ═══════ HANDLER (Strategy Pattern) ═══════
+class Handler(ABC):
+    def __init__(self, level: LogLevel = LogLevel.DEBUG,
+                 formatter: Formatter | None = None):
+        self.level = level
+        self.formatter = formatter or TextFormatter()
+
+    @abstractmethod
+    def emit(self, formatted: str): ...
+
+    def handle(self, record: LogRecord):
+        if record.level >= self.level:
+            self.emit(self.formatter.format(record))
+
+class ConsoleHandler(Handler):
+    def emit(self, formatted: str):
+        print(formatted)
+
+class FileHandler(Handler):
+    def __init__(self, filepath: str, **kwargs):
+        super().__init__(**kwargs)
+        self.filepath = filepath
+        self._lock = threading.Lock()
+
+    def emit(self, formatted: str):
+        with self._lock:
+            with open(self.filepath, "a") as f:
+                f.write(formatted + "\\n")
+
+# ═══════ LOGGER ═══════
+class Logger:
+    _loggers: dict[str, 'Logger'] = {}
+    _lock = threading.Lock()
+
+    def __init__(self, name: str, level: LogLevel = LogLevel.DEBUG):
+        self.name = name
+        self.level = level
+        self._handlers: list[Handler] = []
+
+    @classmethod
+    def get_logger(cls, name: str) -> 'Logger':
+        with cls._lock:
+            if name not in cls._loggers:
+                cls._loggers[name] = Logger(name)
+            return cls._loggers[name]
+
+    def add_handler(self, handler: Handler):
+        self._handlers.append(handler)
+
+    def _log(self, level: LogLevel, message: str,
+             **context):
+        if level < self.level:
+            return
+        record = LogRecord(
+            level=level,
+            message=message,
+            logger_name=self.name,
+            context=context,
+        )
+        for handler in self._handlers:
+            handler.handle(record)
+
+    def debug(self, msg: str, **ctx): self._log(LogLevel.DEBUG, msg, **ctx)
+    def info(self, msg: str, **ctx): self._log(LogLevel.INFO, msg, **ctx)
+    def warn(self, msg: str, **ctx): self._log(LogLevel.WARN, msg, **ctx)
+    def error(self, msg: str, **ctx): self._log(LogLevel.ERROR, msg, **ctx)
+    def fatal(self, msg: str, **ctx): self._log(LogLevel.FATAL, msg, **ctx)
+
+# Usage
+logger = Logger.get_logger("app.server")
+logger.add_handler(ConsoleHandler(level=LogLevel.INFO))
+logger.add_handler(FileHandler("app.log", level=LogLevel.ERROR,
+                               formatter=JSONFormatter()))
+
+logger.info("Server started", port=8080, env="production")
+logger.error("Connection failed", host="db.local", retries=3)
+logger.debug("This won't show — below INFO level")`}
+  java={`public class Logger {
+    private static final Map<String, Logger> loggers
+        = new ConcurrentHashMap<>();
+    private final String name;
+    private LogLevel level = LogLevel.DEBUG;
+    private final List<Handler> handlers
+        = new CopyOnWriteArrayList<>();
+
+    private Logger(String name) { this.name = name; }
+
+    public static Logger getLogger(String name) {
+        return loggers.computeIfAbsent(name, Logger::new);
+    }
+
+    public void addHandler(Handler handler) {
+        handlers.add(handler);
+    }
+
+    private void log(LogLevel level, String message,
+                     Map<String, Object> context) {
+        if (level.ordinal() < this.level.ordinal()) return;
+        var record = new LogRecord(level, message, name, context);
+        for (Handler handler : handlers) {
+            handler.handle(record);
+        }
+    }
+
+    public void info(String msg) { log(LogLevel.INFO, msg, Map.of()); }
+    public void error(String msg, Map<String, Object> ctx) {
+        log(LogLevel.ERROR, msg, ctx);
+    }
+}
+
+abstract class Handler {
+    protected LogLevel level;
+    protected Formatter formatter;
+
+    public void handle(LogRecord record) {
+        if (record.level().ordinal() >= level.ordinal()) {
+            emit(formatter.format(record));
+        }
+    }
+
+    protected abstract void emit(String formatted);
+}
+
+class ConsoleHandler extends Handler {
+    protected void emit(String formatted) {
+        System.out.println(formatted);
+    }
+}`}
+  go={`type Logger struct {
+    name     string
+    level    LogLevel
+    handlers []Handler
+    mu       sync.RWMutex
+}
+
+var (
+    loggers = make(map[string]*Logger)
+    logMu   sync.Mutex
+)
+
+func GetLogger(name string) *Logger {
+    logMu.Lock()
+    defer logMu.Unlock()
+    if l, ok := loggers[name]; ok {
+        return l
+    }
+    l := &Logger{name: name, level: DEBUG}
+    loggers[name] = l
+    return l
+}
+
+func (l *Logger) AddHandler(h Handler) {
+    l.mu.Lock()
+    defer l.mu.Unlock()
+    l.handlers = append(l.handlers, h)
+}
+
+func (l *Logger) log(level LogLevel, msg string,
+        ctx map[string]interface{}) {
+    if level < l.level { return }
+    record := &LogRecord{
+        Level: level, Message: msg,
+        Logger: l.name, Timestamp: time.Now(),
+        Context: ctx,
+    }
+    l.mu.RLock()
+    defer l.mu.RUnlock()
+    for _, h := range l.handlers {
+        h.Handle(record)
+    }
+}
+
+func (l *Logger) Info(msg string, ctx ...map[string]interface{}) {
+    c := map[string]interface{}{}
+    if len(ctx) > 0 { c = ctx[0] }
+    l.log(INFO, msg, c)
+}`}
+  cpp={`class Logger {
+    static std::map<std::string,
+        std::shared_ptr<Logger>> loggers_;
+    static std::mutex mu_;
+
+    std::string name_;
+    LogLevel level_ = LogLevel::DEBUG;
+    std::vector<std::unique_ptr<Handler>> handlers_;
+
+public:
+    static std::shared_ptr<Logger> getLogger(
+            const std::string& name) {
+        std::lock_guard<std::mutex> lock(mu_);
+        auto it = loggers_.find(name);
+        if (it != loggers_.end()) return it->second;
+        auto logger = std::make_shared<Logger>(name);
+        loggers_[name] = logger;
+        return logger;
+    }
+
+    void addHandler(std::unique_ptr<Handler> handler) {
+        handlers_.push_back(std::move(handler));
+    }
+
+    void info(const std::string& msg) {
+        log(LogLevel::INFO, msg);
+    }
+
+    void error(const std::string& msg) {
+        log(LogLevel::ERROR, msg);
+    }
+
+private:
+    void log(LogLevel level, const std::string& msg) {
+        if (level < level_) return;
+        LogRecord record{level, msg, name_};
+        for (auto& handler : handlers_) {
+            handler->handle(record);
+        }
+    }
+};`}
+/>
+
+---
+
+## 📊 Design Patterns Used
+
+| Pattern | Where | Why |
+|---------|-------|-----|
+| **Singleton** | Logger registry | One logger per name |
+| **Strategy** | Handlers & Formatters | Swap output and format |
+| **Chain of Responsibility** | Handler chain | Multiple handlers process each record |
+| **Factory** | Logger.getLogger() | Centralized logger creation |
+
+---
+
+## 🔗 Related Concepts
+
+- [SOLID Principles](/concepts/lld/solid-principles) — OCP: add handlers without modifying Logger
+- [Behavioral Patterns](/concepts/lld/behavioral-patterns) — Strategy and Chain of Responsibility
+- [Distributed Tracing](/concepts/hld/distributed-tracing) — Correlation IDs in log context
+
+---
+
+## 📝 Quick Quiz
+
+**Q1: You want console logs at INFO level but file logs only for ERROR and above. How?**
+
+A) Create two loggers  B) Add two handlers with different level thresholds
+
+**Answer: B** — Add a `ConsoleHandler(level=INFO)` and `FileHandler(level=ERROR)` to the same logger. Each handler filters independently based on its own level.

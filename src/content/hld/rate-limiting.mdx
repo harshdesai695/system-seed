@@ -1,0 +1,195 @@
+# 🎯 What is Rate Limiting?
+
+**Rate Limiting** controls how many requests a user or client can make to a service within a given time window. It protects systems from being overwhelmed.
+
+> **Real-world analogy:** Think of a **theme park** that only lets 100 people in per hour. Once the limit is reached, newcomers must wait. This prevents overcrowding and ensures everyone inside has a good experience.
+
+---
+
+## 🌍 Real-World Example
+
+**Twitter/X API** limits requests to 15 per 15-minute window for most endpoints. **GitHub API** allows 5,000 requests per hour for authenticated users. **Stripe** limits API calls to 100/second per account. These limits prevent abuse and ensure fair usage.
+
+---
+
+## 🔍 Common Algorithms
+
+### 1. Token Bucket
+A bucket holds tokens. Each request consumes one token. Tokens are added at a fixed rate. If the bucket is empty, requests are rejected.
+
+### 2. Sliding Window Log
+Track timestamps of all requests. Count requests in the current window. Reject if count exceeds the limit.
+
+### 3. Fixed Window Counter
+Count requests in fixed time windows (e.g., per minute). Reset the counter when the window expires.
+
+### 4. Sliding Window Counter
+Combines fixed window and sliding window. Uses weighted counts from current and previous windows.
+
+---
+
+## 📊 Algorithm Comparison
+
+| Algorithm | Accuracy | Memory | Burst Handling |
+|-----------|:---:|:---:|:---:|
+| Token Bucket | Good | Low | Allows controlled bursts |
+| Sliding Window Log | Exact | High | No bursts |
+| Fixed Window | Approximate | Very Low | Edge-of-window bursts |
+| Sliding Window Counter | Good | Low | Smooth limiting |
+
+---
+
+## 💻 Code Example: Token Bucket
+
+<CodeBlock
+  title="Token Bucket Rate Limiter"
+  java={`public class TokenBucketRateLimiter {
+    private final int maxTokens;
+    private final double refillRate; // tokens per second
+    private double tokens;
+    private long lastRefillTime;
+
+    public TokenBucketRateLimiter(int maxTokens, double refillRate) {
+        this.maxTokens = maxTokens;
+        this.refillRate = refillRate;
+        this.tokens = maxTokens;
+        this.lastRefillTime = System.nanoTime();
+    }
+
+    public synchronized boolean allowRequest() {
+        refill();
+        if (tokens >= 1) {
+            tokens -= 1;
+            return true;  // ✅ Request allowed
+        }
+        return false;  // ❌ Rate limited
+    }
+
+    private void refill() {
+        long now = System.nanoTime();
+        double elapsed = (now - lastRefillTime) / 1_000_000_000.0;
+        tokens = Math.min(maxTokens, tokens + elapsed * refillRate);
+        lastRefillTime = now;
+    }
+}`}
+  python={`import time
+
+class TokenBucketRateLimiter:
+    def __init__(self, max_tokens: int, refill_rate: float):
+        self.max_tokens = max_tokens
+        self.refill_rate = refill_rate  # tokens per second
+        self.tokens = max_tokens
+        self.last_refill = time.monotonic()
+
+    def allow_request(self) -> bool:
+        self._refill()
+        if self.tokens >= 1:
+            self.tokens -= 1
+            return True   # ✅ Request allowed
+        return False      # ❌ Rate limited
+
+    def _refill(self):
+        now = time.monotonic()
+        elapsed = now - self.last_refill
+        self.tokens = min(self.max_tokens, self.tokens + elapsed * self.refill_rate)
+        self.last_refill = now
+
+# Usage: 10 requests max, refills 2 tokens/second
+limiter = TokenBucketRateLimiter(max_tokens=10, refill_rate=2.0)
+for i in range(15):
+    if limiter.allow_request():
+        print(f"Request {i+1}: ✅ Allowed")
+    else:
+        print(f"Request {i+1}: ❌ Rate limited")`}
+  go={`type TokenBucket struct {
+    maxTokens  float64
+    refillRate float64
+    tokens     float64
+    lastRefill time.Time
+    mu         sync.Mutex
+}
+
+func NewTokenBucket(max int, rate float64) *TokenBucket {
+    return &TokenBucket{
+        maxTokens: float64(max), refillRate: rate,
+        tokens: float64(max), lastRefill: time.Now(),
+    }
+}
+
+func (tb *TokenBucket) AllowRequest() bool {
+    tb.mu.Lock()
+    defer tb.mu.Unlock()
+    tb.refill()
+    if tb.tokens >= 1 {
+        tb.tokens--
+        return true
+    }
+    return false
+}
+
+func (tb *TokenBucket) refill() {
+    elapsed := time.Since(tb.lastRefill).Seconds()
+    tb.tokens = math.Min(tb.maxTokens, tb.tokens+elapsed*tb.refillRate)
+    tb.lastRefill = time.Now()
+}`}
+  cpp={`class TokenBucket {
+    double maxTokens, refillRate, tokens;
+    std::chrono::steady_clock::time_point lastRefill;
+    std::mutex mu;
+
+public:
+    TokenBucket(int max, double rate)
+        : maxTokens(max), refillRate(rate), tokens(max),
+          lastRefill(std::chrono::steady_clock::now()) {}
+
+    bool allowRequest() {
+        std::lock_guard<std::mutex> lock(mu);
+        refill();
+        if (tokens >= 1.0) { tokens -= 1.0; return true; }
+        return false;
+    }
+
+private:
+    void refill() {
+        auto now = std::chrono::steady_clock::now();
+        double elapsed = std::chrono::duration<double>(now - lastRefill).count();
+        tokens = std::min(maxTokens, tokens + elapsed * refillRate);
+        lastRefill = now;
+    }
+};`}
+  highlightLines={{ java: [15, 16, 17, 18], python: [11, 12, 13, 14] }}
+/>
+
+---
+
+## ⚖️ Pros & Cons
+
+| Pros ✅ | Cons ❌ |
+|---------|---------|
+| Prevents system overload | Legitimate users can be blocked |
+| Protects against DDoS attacks | Adds latency for limit checking |
+| Ensures fair resource usage | Complexity in distributed rate limiting |
+| Cost control (API billing) | Hard to set the right limits |
+
+---
+
+## 🔗 Related Concepts
+
+- [API Design](/concepts/hld/api-design) — Rate limits are applied to APIs
+- [Load Balancing](/concepts/hld/load-balancing) — Rate limiting at the LB layer
+- [Rate Limiter LLD](/concepts/lld/rate-limiter-lld) — Detailed implementation
+- [Circuit Breaker](/concepts/hld/circuit-breaker) — Another protection pattern
+
+---
+
+## 📝 Quick Quiz
+
+**Q1: Your API gets 1000 requests/second normally but spikes to 5000 during events. Which algorithm handles bursts best?**
+
+A) Fixed Window  B) Token Bucket  C) Sliding Window Log
+
+**Answer: B** — Token Bucket allows controlled bursts up to the bucket capacity, then smoothly rate limits.
+
+---
+
+*Sources: Stripe Engineering Blog, Cloudflare Rate Limiting docs, Redis documentation*

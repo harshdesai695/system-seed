@@ -1,0 +1,196 @@
+# 🎯 What is Database Design?
+
+**Database Design** is the process of choosing the right type of database and structuring your data for optimal storage, retrieval, and scalability. The two main families are **SQL** (relational) and **NoSQL** (non-relational).
+
+> **Real-world analogy:** Think of **SQL** as a **spreadsheet** with strict rows and columns — every entry must follow the same format. **NoSQL** is like a **filing cabinet** where each folder can contain different types of documents — some have photos, some have contracts, and that's perfectly fine.
+
+---
+
+## 🌍 Real-World Example
+
+**Amazon** uses both SQL and NoSQL. Their product catalog and inventory use **DynamoDB** (NoSQL) because each product has different attributes — a book has an author, a TV has screen size. But financial transactions and order records use **Aurora (SQL)** because they need strict consistency and relationships between orders, payments, and customers.
+
+---
+
+## 🔍 SQL (Relational Databases)
+
+SQL databases organize data into **tables** with predefined schemas. Every row follows the same structure.
+
+**Examples:** PostgreSQL, MySQL, Oracle, SQL Server
+
+### Key Concepts
+- **Tables**: Data stored in rows and columns
+- **Schema**: Predefined structure (must define columns before inserting data)
+- **Relationships**: Tables linked through foreign keys
+- **ACID**: Atomicity, Consistency, Isolation, Durability — guarantees for transactions
+- **SQL Language**: Standardized query language
+
+---
+
+## 🔍 NoSQL (Non-Relational Databases)
+
+NoSQL databases provide flexible schemas and are designed for specific data models.
+
+### Types of NoSQL
+
+| Type | How it stores data | Example | Best for |
+|------|:---|:---|:---|
+| **Document** | JSON-like documents | MongoDB, CouchDB | Content management, catalogs |
+| **Key-Value** | Simple key-value pairs | Redis, DynamoDB | Caching, session storage |
+| **Column-Family** | Columns grouped into families | Cassandra, HBase | Time-series, analytics |
+| **Graph** | Nodes and edges | Neo4j, Amazon Neptune | Social networks, recommendations |
+
+---
+
+## 📊 SQL vs NoSQL Comparison
+
+| Factor | SQL | NoSQL |
+|--------|:---:|:---:|
+| **Schema** | Fixed, predefined | Flexible, dynamic |
+| **Scaling** | Vertical (scale up) | Horizontal (scale out) |
+| **Relationships** | Excellent (JOINs) | Limited (denormalized) |
+| **Transactions** | ACID compliant | Eventually consistent (usually) |
+| **Query Language** | Standardized SQL | Database-specific APIs |
+| **Data Structure** | Tabular (rows/columns) | Documents, key-value, graphs |
+| **Best for** | Complex queries, relationships | High throughput, flexible data |
+
+---
+
+## 💻 Code Example: CRUD Operations
+
+<CodeBlock
+  title="SQL vs NoSQL CRUD"
+  java={`// SQL (JDBC)
+public class SqlExample {
+    public void createUser(Connection conn, String name, String email) throws SQLException {
+        String sql = "INSERT INTO users (name, email) VALUES (?, ?)";
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, name);
+            stmt.setString(2, email);
+            stmt.executeUpdate();
+        }
+    }
+
+    public User findUser(Connection conn, int id) throws SQLException {
+        String sql = "SELECT * FROM users WHERE id = ?";
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, id);
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                return new User(rs.getInt("id"), rs.getString("name"), rs.getString("email"));
+            }
+            return null;
+        }
+    }
+}`}
+  python={`# SQL (SQLite)
+import sqlite3
+
+def create_user(conn, name: str, email: str):
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO users (name, email) VALUES (?, ?)", (name, email))
+    conn.commit()
+
+def find_user(conn, user_id: int):
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM users WHERE id = ?", (user_id,))
+    return cursor.fetchone()
+
+# NoSQL (MongoDB-style)
+from pymongo import MongoClient
+
+client = MongoClient("mongodb://localhost:27017")
+db = client["myapp"]
+
+# Flexible schema - each document can have different fields
+db.users.insert_one({"name": "Alice", "email": "alice@example.com", "age": 30})
+db.users.insert_one({"name": "Bob", "email": "bob@example.com", "hobbies": ["chess"]})`}
+  go={`// SQL (database/sql)
+func createUser(db *sql.DB, name, email string) error {
+    _, err := db.Exec("INSERT INTO users (name, email) VALUES (?, ?)", name, email)
+    return err
+}
+
+func findUser(db *sql.DB, id int) (*User, error) {
+    row := db.QueryRow("SELECT id, name, email FROM users WHERE id = ?", id)
+    var u User
+    err := row.Scan(&u.ID, &u.Name, &u.Email)
+    return &u, err
+}`}
+  cpp={`// SQL example (conceptual)
+class UserRepository {
+public:
+    void createUser(Database& db, const std::string& name, const std::string& email) {
+        db.execute("INSERT INTO users (name, email) VALUES (?, ?)", name, email);
+    }
+
+    User findUser(Database& db, int id) {
+        auto result = db.query("SELECT * FROM users WHERE id = ?", id);
+        return User{result["id"], result["name"], result["email"]};
+    }
+};`}
+/>
+
+---
+
+## 🧩 Decision Tree: Which Database to Choose?
+
+**Choose SQL when:**
+- Your data has clear relationships (users → orders → products)
+- You need complex queries with JOINs
+- ACID transactions are critical (banking, e-commerce)
+- Your schema is well-defined and unlikely to change
+
+**Choose NoSQL when:**
+- Your data structure varies (different products have different attributes)
+- You need massive horizontal scalability
+- You prioritize speed and availability over consistency
+- You're building real-time apps, IoT, or content management
+
+---
+
+## ⚖️ Pros & Cons
+
+| | SQL ✅ | SQL ❌ |
+|---|---|---|
+| | Strong consistency | Hard to scale horizontally |
+| | Mature ecosystem | Rigid schema changes |
+| | Complex queries | Slower for massive write loads |
+
+| | NoSQL ✅ | NoSQL ❌ |
+|---|---|---|
+| | Flexible schema | Limited JOIN support |
+| | Easy horizontal scaling | Eventual consistency issues |
+| | High write throughput | Less standardized |
+
+---
+
+## 🔗 Related Concepts
+
+- [Database Sharding](/concepts/hld/database-sharding) — Horizontal scaling for databases
+- [Database Replication](/concepts/hld/database-replication) — Copies for reliability
+- [CAP Theorem](/concepts/hld/cap-theorem) — The tradeoff that drives NoSQL design
+- [Caching](/concepts/hld/caching) — Often sits in front of databases
+
+---
+
+## 📝 Quick Quiz
+
+**Q1: You're building a social network where users have profiles with very different fields (some have bios, some have portfolios, some have linked accounts). Which database type fits better?**
+
+A) SQL — because you need relationships between users
+B) NoSQL (Document) — because each profile has a different structure
+
+**Answer: B** — Document databases like MongoDB handle flexible schemas naturally. Each user document can have different fields.
+
+**Q2: You're building a banking system that transfers money between accounts. Which database property is most critical?**
+
+A) Horizontal scalability
+B) ACID transactions
+C) Flexible schema
+
+**Answer: B** — Banking requires ACID (especially Atomicity) to ensure money isn't lost during transfers.
+
+---
+
+*Sources: Designing Data-Intensive Applications by Martin Kleppmann, AWS Database Documentation, MongoDB Documentation*

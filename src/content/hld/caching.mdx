@@ -1,0 +1,329 @@
+# 🎯 What is Caching?
+
+**Caching** is the technique of storing copies of frequently accessed data in a fast-access storage layer so that future requests can be served faster.
+
+> **Real-world analogy:** Imagine you're studying for an exam. Instead of walking to the **library** (database) every time you need to look something up, you keep your **most-used textbooks on your desk** (cache). Your desk is small, so you can only keep a few books — but accessing them is instant compared to walking to the library.
+
+---
+
+## 🌍 Real-World Example
+
+**Amazon** caches product pages, pricing data, and recommendations. When millions of users search for "iPhone" during Black Friday, Amazon doesn't query the database every time. Instead, the result is cached, and subsequent requests are served from the cache in **microseconds** instead of milliseconds. This reduces database load by over 90% and keeps the site blazing fast.
+
+**Redis**, an in-memory data store used by Twitter, GitHub, and Pinterest, can perform **100,000+ operations per second** — that's the power of caching.
+
+---
+
+## 🔍 How Does It Work?
+
+### Cache Hit vs Cache Miss
+
+When a request comes in:
+
+1. **Check the cache** — Is the data already stored?
+2. **Cache Hit** ✅ — Data found in cache → return immediately (fast!)
+3. **Cache Miss** ❌ — Data NOT in cache → fetch from database → store in cache → return to user
+
+### Caching Layers
+
+Modern systems have multiple caching layers:
+
+| Layer | What | Speed | Example |
+|-------|------|:-----:|---------|
+| **Browser Cache** | Client stores files locally | Instant | CSS, JavaScript, images |
+| **CDN Cache** | Edge servers worldwide | ~10ms | Static assets, videos |
+| **Application Cache** | App-level in-memory cache | ~1ms | Redis, Memcached |
+| **Database Cache** | DB query result cache | ~5ms | MySQL query cache |
+| **CPU Cache** | Hardware cache | ~1ns | L1, L2, L3 CPU caches |
+
+---
+
+## 📊 Caching Strategies
+
+### 1. Cache-Aside (Lazy Loading)
+The application manages the cache. On miss, fetch from DB and store in cache.
+
+**How it works:**
+1. App checks cache
+2. If miss → read from DB
+3. App writes data to cache
+4. Return data
+
+**Best for:** Read-heavy workloads, when you can tolerate stale data.
+
+### 2. Write-Through
+Data is written to cache AND database simultaneously.
+
+**How it works:**
+1. App writes to cache
+2. Cache writes to DB (synchronously)
+3. Confirm write to app
+
+**Best for:** When data consistency is critical.
+
+### 3. Write-Behind (Write-Back)
+Data is written to cache first, then asynchronously written to the database.
+
+**How it works:**
+1. App writes to cache
+2. Cache confirms write immediately
+3. Cache writes to DB later (in batches)
+
+**Best for:** Write-heavy workloads where slight data loss risk is acceptable.
+
+### 4. Read-Through
+Similar to cache-aside, but the **cache** manages loading from the database (not the application).
+
+---
+
+## 💻 Code Example: Cache-Aside Pattern
+
+<CodeBlock
+  title="Cache-Aside Pattern"
+  java={`import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
+public class CacheAside<K, V> {
+    private final Map<K, V> cache = new ConcurrentHashMap<>();
+    private final Database<K, V> database;
+    private final int maxSize;
+
+    public CacheAside(Database<K, V> database, int maxSize) {
+        this.database = database;
+        this.maxSize = maxSize;
+    }
+
+    public V get(K key) {
+        // 1. Check cache first
+        V value = cache.get(key);
+        if (value != null) {
+            System.out.println("Cache HIT for key: " + key);
+            return value;  // Fast path!
+        }
+
+        // 2. Cache miss - fetch from database
+        System.out.println("Cache MISS for key: " + key);
+        value = database.read(key);
+
+        // 3. Store in cache for next time
+        if (value != null) {
+            if (cache.size() >= maxSize) {
+                evictOldest();  // Make room
+            }
+            cache.put(key, value);
+        }
+        return value;
+    }
+
+    public void put(K key, V value) {
+        database.write(key, value);  // Write to DB
+        cache.put(key, value);       // Update cache
+    }
+
+    private void evictOldest() {
+        // Simple eviction - remove first entry
+        K firstKey = cache.keySet().iterator().next();
+        cache.remove(firstKey);
+    }
+}`}
+  python={`from collections import OrderedDict
+from typing import Optional, TypeVar, Generic
+
+K = TypeVar('K')
+V = TypeVar('V')
+
+class CacheAside:
+    def __init__(self, database, max_size: int = 100):
+        self.cache: OrderedDict = OrderedDict()
+        self.database = database
+        self.max_size = max_size
+        self.hits = 0
+        self.misses = 0
+
+    def get(self, key) -> Optional[any]:
+        # 1. Check cache first
+        if key in self.cache:
+            self.hits += 1
+            print(f"Cache HIT for key: {key}")
+            self.cache.move_to_end(key)  # Mark as recently used
+            return self.cache[key]
+
+        # 2. Cache miss - fetch from database
+        self.misses += 1
+        print(f"Cache MISS for key: {key}")
+        value = self.database.read(key)
+
+        # 3. Store in cache for next time
+        if value is not None:
+            if len(self.cache) >= self.max_size:
+                self.cache.popitem(last=False)  # Evict LRU
+            self.cache[key] = value
+        return value
+
+    def put(self, key, value):
+        self.database.write(key, value)
+        self.cache[key] = value
+
+    @property
+    def hit_rate(self) -> float:
+        total = self.hits + self.misses
+        return self.hits / total if total > 0 else 0.0`}
+  go={`package cache
+
+import "sync"
+
+type CacheAside struct {
+    cache    map[string]interface{}
+    mu       sync.RWMutex
+    maxSize  int
+    database Database
+}
+
+func NewCacheAside(db Database, maxSize int) *CacheAside {
+    return &CacheAside{
+        cache:    make(map[string]interface{}),
+        maxSize:  maxSize,
+        database: db,
+    }
+}
+
+func (c *CacheAside) Get(key string) (interface{}, bool) {
+    c.mu.RLock()
+    value, found := c.cache[key]
+    c.mu.RUnlock()
+
+    if found {
+        fmt.Println("Cache HIT for key:", key)
+        return value, true // Fast path!
+    }
+
+    // Cache miss - fetch from database
+    fmt.Println("Cache MISS for key:", key)
+    value, err := c.database.Read(key)
+    if err != nil {
+        return nil, false
+    }
+
+    // Store in cache
+    c.mu.Lock()
+    c.cache[key] = value
+    c.mu.Unlock()
+    return value, true
+}`}
+  cpp={`#include <unordered_map>
+#include <string>
+#include <mutex>
+#include <optional>
+#include <iostream>
+
+class CacheAside {
+    std::unordered_map<std::string, std::string> cache;
+    mutable std::mutex mu;
+    size_t maxSize;
+    Database& database;
+
+public:
+    CacheAside(Database& db, size_t maxSize)
+        : database(db), maxSize(maxSize) {}
+
+    std::optional<std::string> get(const std::string& key) {
+        std::lock_guard<std::mutex> lock(mu);
+
+        auto it = cache.find(key);
+        if (it != cache.end()) {
+            std::cout << "Cache HIT: " << key << std::endl;
+            return it->second;  // Fast path!
+        }
+
+        // Cache miss
+        std::cout << "Cache MISS: " << key << std::endl;
+        auto value = database.read(key);
+        if (value) {
+            if (cache.size() >= maxSize) {
+                cache.erase(cache.begin());
+            }
+            cache[key] = *value;
+        }
+        return value;
+    }
+};`}
+  highlightLines={{ java: [16, 17, 18, 19], python: [18, 19, 20, 21] }}
+/>
+
+---
+
+## 📊 Cache Eviction Policies
+
+When the cache is full, which data do we remove?
+
+| Policy | How it works | Best for |
+|--------|-------------|----------|
+| **LRU** (Least Recently Used) | Remove the item that hasn't been accessed for the longest time | General purpose, great default |
+| **LFU** (Least Frequently Used) | Remove the item accessed the fewest times | Data with clear hot/cold patterns |
+| **FIFO** (First In, First Out) | Remove the oldest item | Simple, predictable behavior |
+| **TTL** (Time To Live) | Remove items after a set expiration time | Data that becomes stale (prices, sessions) |
+| **Random** | Remove a random item | When all items are equally likely to be accessed |
+
+---
+
+## ⚖️ Pros & Cons
+
+| Pros ✅ | Cons ❌ |
+|---------|---------|
+| Dramatically faster reads | Stale data risk |
+| Reduces database load | Memory cost (RAM is expensive) |
+| Improves user experience | Cache invalidation is hard |
+| Reduces latency (ms → μs) | Added architectural complexity |
+| Can absorb traffic spikes | Cold start problem (empty cache) |
+
+> **"There are only two hard things in Computer Science: cache invalidation and naming things."** — Phil Karlton
+
+---
+
+## 🧩 When to Use / When NOT to Use
+
+**Use caching when:**
+- Data is read much more often than it's written (read-heavy)
+- The same data is requested repeatedly
+- You can tolerate slightly stale data
+- Database is a bottleneck
+
+**Don't use caching when:**
+- Data changes very frequently (every request is unique)
+- Data must always be perfectly up-to-date (financial transactions)
+- You have low traffic (the complexity isn't worth it)
+- Your data set is too large to fit in memory
+
+---
+
+## 🔗 Related Concepts
+
+- [CDN](/concepts/hld/cdn) — A form of caching at the network edge
+- [Database Design](/concepts/hld/database-design) — Understanding what sits behind the cache
+- [Cache Implementation (LRU/LFU)](/concepts/lld/cache-lru-lfu) — Build your own cache data structure
+- [Load Balancing](/concepts/hld/load-balancing) — Caches work with load balancers to reduce backend pressure
+- [Rate Limiting](/concepts/hld/rate-limiting) — Caches can help enforce rate limits efficiently
+
+---
+
+## 📝 Quick Quiz
+
+**Q1: Your e-commerce site shows product prices that update every hour. Users complain the site is slow. What caching strategy makes sense?**
+
+A) No caching — prices must always be exact
+B) Cache-aside with a 30-minute TTL
+C) Write-through with no TTL
+
+**Answer: B** — Since prices update hourly, a 30-minute TTL gives you speed benefits while ensuring data doesn't get too stale.
+
+**Q2: What happens during a "cache stampede"?**
+
+A) The cache runs out of memory
+B) Multiple requests hit the database simultaneously when a popular cache entry expires
+C) The cache server crashes
+
+**Answer: B** — When a popular cache entry expires, hundreds of simultaneous requests may all experience a cache miss and all query the database at once, potentially overwhelming it. Solutions include cache warming, staggered TTLs, or using a lock to allow only one request to rebuild the cache.
+
+---
+
+*Sources: Redis Documentation, AWS ElastiCache Best Practices, Designing Data-Intensive Applications by Martin Kleppmann, Meta Engineering Blog*

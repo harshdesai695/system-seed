@@ -1,0 +1,452 @@
+# 🎯 What are the SOLID Principles?
+
+**SOLID** is an acronym for five fundamental principles of object-oriented design that make software easier to understand, maintain, and extend.
+
+> **Real-world analogy:** Think of SOLID like the rules for organizing a **well-run kitchen**. Each chef has **one job** (S). You can add new menu items **without rewriting the entire recipe book** (O). Any dessert plate fits on the same serving tray (L). Waiters only need to know what's on the menu, not how the food is made (I). And the head chef doesn't depend on a specific oven brand — any oven that heats food will do (D).
+
+---
+
+## 🌍 Real-World Example
+
+**Google** uses SOLID principles extensively in their codebase. When building Google Maps, thousands of engineers work on different features simultaneously. SOLID ensures that changing the routing algorithm doesn't break the UI, and adding a new transportation mode (like e-scooters) doesn't require rewriting the entire navigation system.
+
+---
+
+## 🔍 The Five Principles
+
+---
+
+### S — Single Responsibility Principle (SRP)
+
+> **A class should have only one reason to change.**
+
+Every class should do **one thing** and do it well.
+
+**Analogy:** A Swiss Army knife seems useful, but in a professional kitchen, chefs use **separate specialized knives** — one for bread, one for vegetables, one for meat. Each tool does one job perfectly.
+
+**❌ Bad:**
+<CodeBlock
+  title="SRP Violation"
+  java={`// BAD: This class does too many things
+public class Employee {
+    public void calculatePay() { /* payroll logic */ }
+    public void saveToDatabase() { /* database logic */ }
+    public void generateReport() { /* reporting logic */ }
+}`}
+  python={`# BAD: This class does too many things
+class Employee:
+    def calculate_pay(self): ...      # payroll logic
+    def save_to_database(self): ...   # database logic
+    def generate_report(self): ...    # reporting logic`}
+  go={`// BAD: This struct does too many things
+type Employee struct { Name string }
+func (e *Employee) CalculatePay() float64 { return 0 }    // payroll
+func (e *Employee) SaveToDatabase() error { return nil }  // database
+func (e *Employee) GenerateReport() string { return "" }  // reporting`}
+  cpp={`// BAD: This class does too many things
+class Employee {
+public:
+    void calculatePay();      // payroll logic
+    void saveToDatabase();    // database logic
+    void generateReport();    // reporting logic
+};`}
+/>
+
+**✅ Good:**
+<CodeBlock
+  title="SRP Applied"
+  java={`// GOOD: Each class has one responsibility
+public class Employee {
+    private String name;
+    private double salary;
+    // Only holds employee data
+}
+
+public class PayrollCalculator {
+    public double calculatePay(Employee emp) { /* payroll only */ }
+}
+
+public class EmployeeRepository {
+    public void save(Employee emp) { /* database only */ }
+}
+
+public class ReportGenerator {
+    public String generate(Employee emp) { /* reports only */ }
+}`}
+  python={`# GOOD: Each class has one responsibility
+class Employee:
+    def __init__(self, name: str, salary: float):
+        self.name = name
+        self.salary = salary
+
+class PayrollCalculator:
+    def calculate_pay(self, emp: Employee) -> float: ...
+
+class EmployeeRepository:
+    def save(self, emp: Employee) -> None: ...
+
+class ReportGenerator:
+    def generate(self, emp: Employee) -> str: ...`}
+  go={`// GOOD: Each struct has one responsibility
+type Employee struct {
+    Name   string
+    Salary float64
+}
+
+type PayrollCalculator struct{}
+func (p *PayrollCalculator) CalculatePay(emp Employee) float64 { return 0 }
+
+type EmployeeRepository struct{}
+func (r *EmployeeRepository) Save(emp Employee) error { return nil }
+
+type ReportGenerator struct{}
+func (g *ReportGenerator) Generate(emp Employee) string { return "" }`}
+  cpp={`// GOOD: Each class has one responsibility
+class Employee {
+public:
+    std::string name;
+    double salary;
+};
+
+class PayrollCalculator {
+public:
+    double calculatePay(const Employee& emp);
+};
+
+class EmployeeRepository {
+public:
+    void save(const Employee& emp);
+};
+
+class ReportGenerator {
+public:
+    std::string generate(const Employee& emp);
+};`}
+/>
+
+---
+
+### O — Open/Closed Principle (OCP)
+
+> **Software entities should be open for extension, but closed for modification.**
+
+You should be able to add new behavior **without changing existing code**.
+
+**Analogy:** A **power strip** is open for extension (plug in new devices) but closed for modification (you don't rewire it each time you add a new appliance).
+
+<CodeBlock
+  title="Open/Closed Principle"
+  java={`// Define a common interface
+public interface Shape {
+    double area();
+}
+
+// Extend without modifying existing code
+public class Circle implements Shape {
+    private double radius;
+    public Circle(double radius) { this.radius = radius; }
+    public double area() { return Math.PI * radius * radius; }
+}
+
+public class Rectangle implements Shape {
+    private double width, height;
+    public Rectangle(double w, double h) { width = w; height = h; }
+    public double area() { return width * height; }
+}
+
+// Adding a new shape? Just create a new class!
+public class Triangle implements Shape {
+    private double base, height;
+    public Triangle(double b, double h) { base = b; height = h; }
+    public double area() { return 0.5 * base * height; }
+}
+
+// This code NEVER needs to change
+public class AreaCalculator {
+    public double totalArea(List<Shape> shapes) {
+        return shapes.stream().mapToDouble(Shape::area).sum();
+    }
+}`}
+  python={`from abc import ABC, abstractmethod
+import math
+
+# Define a common interface
+class Shape(ABC):
+    @abstractmethod
+    def area(self) -> float: ...
+
+# Extend without modifying existing code
+class Circle(Shape):
+    def __init__(self, radius: float):
+        self.radius = radius
+
+    def area(self) -> float:
+        return math.pi * self.radius ** 2
+
+class Rectangle(Shape):
+    def __init__(self, width: float, height: float):
+        self.width = width
+        self.height = height
+
+    def area(self) -> float:
+        return self.width * self.height
+
+# Adding a new shape? Just create a new class!
+class Triangle(Shape):
+    def __init__(self, base: float, height: float):
+        self.base = base
+        self.height = height
+
+    def area(self) -> float:
+        return 0.5 * self.base * self.height
+
+# This code NEVER needs to change
+def total_area(shapes: list[Shape]) -> float:
+    return sum(s.area() for s in shapes)`}
+  go={`type Shape interface {
+    Area() float64
+}
+
+type Circle struct{ Radius float64 }
+func (c Circle) Area() float64 { return math.Pi * c.Radius * c.Radius }
+
+type Rectangle struct{ Width, Height float64 }
+func (r Rectangle) Area() float64 { return r.Width * r.Height }
+
+// Adding a new shape? Just create a new struct!
+type Triangle struct{ Base, Height float64 }
+func (t Triangle) Area() float64 { return 0.5 * t.Base * t.Height }
+
+// This code NEVER needs to change
+func TotalArea(shapes []Shape) float64 {
+    total := 0.0
+    for _, s := range shapes {
+        total += s.Area()
+    }
+    return total
+}`}
+  cpp={`class Shape {
+public:
+    virtual double area() const = 0;
+    virtual ~Shape() = default;
+};
+
+class Circle : public Shape {
+    double radius;
+public:
+    Circle(double r) : radius(r) {}
+    double area() const override { return M_PI * radius * radius; }
+};
+
+class Rectangle : public Shape {
+    double width, height;
+public:
+    Rectangle(double w, double h) : width(w), height(h) {}
+    double area() const override { return width * height; }
+};
+
+// Adding a new shape? Just create a new class!
+class Triangle : public Shape {
+    double base, height;
+public:
+    Triangle(double b, double h) : base(b), height(h) {}
+    double area() const override { return 0.5 * base * height; }
+};`}
+/>
+
+---
+
+### L — Liskov Substitution Principle (LSP)
+
+> **Objects of a superclass should be replaceable with objects of a subclass without breaking the application.**
+
+If it looks like a duck and quacks like a duck, but needs batteries — you probably have a violation.
+
+**Analogy:** If you order a **vehicle** for delivery, you should be able to use a car, a van, or a truck. All of them can drive and carry things. But if someone sends you a **boat**, that violates the principle — it can't drive on roads!
+
+---
+
+### I — Interface Segregation Principle (ISP)
+
+> **No client should be forced to depend on methods it doesn't use.**
+
+Many small, specific interfaces are better than one large, general interface.
+
+**Analogy:** A restaurant menu with clear sections (appetizers, mains, desserts) is better than one giant list where you have to wade through sushi to find pizza.
+
+---
+
+### D — Dependency Inversion Principle (DIP)
+
+> **High-level modules should not depend on low-level modules. Both should depend on abstractions.**
+
+**Analogy:** A **lamp** doesn't depend on a specific power plant. It depends on a **power outlet** (abstraction). Any power source that provides electricity through a standard outlet will work.
+
+<CodeBlock
+  title="Dependency Inversion"
+  java={`// Abstraction (interface)
+public interface NotificationSender {
+    void send(String message, String recipient);
+}
+
+// Low-level modules implement the interface
+public class EmailSender implements NotificationSender {
+    public void send(String message, String recipient) {
+        System.out.println("Email to " + recipient + ": " + message);
+    }
+}
+
+public class SmsSender implements NotificationSender {
+    public void send(String message, String recipient) {
+        System.out.println("SMS to " + recipient + ": " + message);
+    }
+}
+
+// High-level module depends on abstraction, NOT concrete classes
+public class NotificationService {
+    private final NotificationSender sender;
+
+    public NotificationService(NotificationSender sender) {
+        this.sender = sender;  // Can be Email, SMS, Push — anything!
+    }
+
+    public void notifyUser(String message, String user) {
+        sender.send(message, user);
+    }
+}`}
+  python={`from abc import ABC, abstractmethod
+
+# Abstraction
+class NotificationSender(ABC):
+    @abstractmethod
+    def send(self, message: str, recipient: str) -> None: ...
+
+# Low-level modules implement the interface
+class EmailSender(NotificationSender):
+    def send(self, message: str, recipient: str) -> None:
+        print(f"Email to {recipient}: {message}")
+
+class SmsSender(NotificationSender):
+    def send(self, message: str, recipient: str) -> None:
+        print(f"SMS to {recipient}: {message}")
+
+# High-level module depends on abstraction
+class NotificationService:
+    def __init__(self, sender: NotificationSender):
+        self.sender = sender  # Can be Email, SMS, Push — anything!
+
+    def notify_user(self, message: str, user: str) -> None:
+        self.sender.send(message, user)`}
+  go={`// Abstraction (interface)
+type NotificationSender interface {
+    Send(message, recipient string) error
+}
+
+// Low-level module
+type EmailSender struct{}
+func (e *EmailSender) Send(msg, to string) error {
+    fmt.Printf("Email to %s: %s\\n", to, msg)
+    return nil
+}
+
+type SmsSender struct{}
+func (s *SmsSender) Send(msg, to string) error {
+    fmt.Printf("SMS to %s: %s\\n", to, msg)
+    return nil
+}
+
+// High-level module depends on abstraction
+type NotificationService struct {
+    sender NotificationSender // Can be ANY sender
+}
+
+func (n *NotificationService) NotifyUser(msg, user string) error {
+    return n.sender.Send(msg, user)
+}`}
+  cpp={`// Abstraction
+class NotificationSender {
+public:
+    virtual void send(const std::string& msg, const std::string& to) = 0;
+    virtual ~NotificationSender() = default;
+};
+
+// Low-level modules
+class EmailSender : public NotificationSender {
+public:
+    void send(const std::string& msg, const std::string& to) override {
+        std::cout << "Email to " << to << ": " << msg << std::endl;
+    }
+};
+
+class SmsSender : public NotificationSender {
+public:
+    void send(const std::string& msg, const std::string& to) override {
+        std::cout << "SMS to " << to << ": " << msg << std::endl;
+    }
+};
+
+// High-level module depends on abstraction
+class NotificationService {
+    std::unique_ptr<NotificationSender> sender;
+public:
+    NotificationService(std::unique_ptr<NotificationSender> s)
+        : sender(std::move(s)) {}
+
+    void notifyUser(const std::string& msg, const std::string& user) {
+        sender->send(msg, user);
+    }
+};`}
+/>
+
+---
+
+## ⚖️ Summary Table
+
+| Principle | One-liner | Key Benefit |
+|-----------|-----------|-------------|
+| **S** — Single Responsibility | One class, one job | Easier to change |
+| **O** — Open/Closed | Extend, don't modify | Safer additions |
+| **L** — Liskov Substitution | Subtypes must be substitutable | Reliable polymorphism |
+| **I** — Interface Segregation | Small, focused interfaces | Less coupling |
+| **D** — Dependency Inversion | Depend on abstractions | Flexible architecture |
+
+---
+
+## 🧩 When to Apply
+
+- **Always** in production codebases with multiple developers
+- **Design patterns** are built on SOLID — understanding these principles makes patterns intuitive
+- **Over-engineering warning**: Don't create 20 interfaces for a 50-line script. SOLID shines in medium-to-large systems.
+
+---
+
+## 🔗 Related Concepts
+
+- [Design Patterns — Creational](/concepts/lld/creational-patterns) — Factory and Builder patterns leverage OCP and DIP
+- [Design Patterns — Structural](/concepts/lld/structural-patterns) — Adapter and Decorator patterns are built on LSP and ISP
+- [Design Patterns — Behavioral](/concepts/lld/behavioral-patterns) — Strategy and Observer patterns embody DIP
+- [Notification System](/concepts/lld/notification-system) — Real application of DIP with multi-channel routing
+
+---
+
+## 📝 Quick Quiz
+
+**Q1: A class handles user authentication, sends emails, and writes logs. Which SOLID principle is violated?**
+
+A) Open/Closed
+B) Single Responsibility
+C) Interface Segregation
+
+**Answer: B** — The class has three responsibilities. It should be split into AuthService, EmailService, and LogService.
+
+**Q2: You need to add "Push Notification" support to a notification system. If your code follows OCP, what do you do?**
+
+A) Modify the existing NotificationService class
+B) Create a new PushSender class that implements NotificationSender
+C) Rewrite the entire notification module
+
+**Answer: B** — OCP says to extend (new class) without modifying existing code.
+
+---
+
+*Sources: Robert C. Martin (Clean Architecture), Martin Fowler's blog, Google Engineering Practices*

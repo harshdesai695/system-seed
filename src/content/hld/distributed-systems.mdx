@@ -1,0 +1,237 @@
+# 🎯 What are Distributed Systems?
+
+A **distributed system** is a collection of independent computers that appear to users as a single coherent system. These machines communicate over a network and coordinate their actions to achieve a common goal.
+
+> **Real-world analogy:** Think of a **global pizza chain** like Domino's. Each outlet operates independently (takes orders, makes pizza, delivers), but to a customer, it's all "Domino's." They share recipes, coordinate branding, handle failures locally, and each outlet can serve customers even if others go down. That's a distributed system.
+
+---
+
+## 🌍 Real-World Example
+
+**Google Search** runs on thousands of machines across dozens of data centers. When you Google something, your query is processed across potentially hundreds of machines simultaneously — yet you see one search results page in under 300ms.
+
+---
+
+## 🔍 Key Properties
+
+### The 8 Fallacies of Distributed Computing
+
+Things developers wrongly assume:
+1. The network is reliable
+2. Latency is zero
+3. Bandwidth is infinite
+4. The network is secure
+5. Topology doesn't change
+6. There is one administrator
+7. Transport cost is zero
+8. The network is homogeneous
+
+---
+
+## 📊 Key Concepts Comparison
+
+| Concept | Description |
+|---------|-------------|
+| **Scalability** | Add more machines to handle increasing load |
+| **Fault Tolerance** | System continues working despite component failures |
+| **Availability** | System uptime — percentage of time the system is operational |
+| **Consistency** | All nodes see the same data at the same time |
+| **Partition Tolerance** | System works despite network failures between nodes |
+| **Transparency** | Hide complexity from end users |
+| **Concurrency** | Multiple operations happen simultaneously |
+
+---
+
+## 🔑 Consistency Models
+
+| Model | Guarantee | Example |
+|-------|-----------|---------|
+| **Strong** | All reads return the latest write | Bank transactions |
+| **Eventual** | All replicas converge over time | Social media likes |
+| **Causal** | Causally related ops seen in order | Chat messages |
+| **Read-your-writes** | You always see your own updates | Profile edits |
+
+---
+
+## 💻 Code Example: Simple Distributed Key-Value Store
+
+<CodeBlock
+  title="Distributed Key-Value Store with Consistent Hashing"
+  python={`import hashlib
+from typing import Dict, Optional
+
+class DistributedKVStore:
+    """Simple distributed key-value store using consistent hashing."""
+
+    def __init__(self):
+        self.nodes: Dict[str, Dict[str, str]] = {}
+        self.ring: list = []
+
+    def _hash(self, key: str) -> int:
+        return int(hashlib.md5(key.encode()).hexdigest(), 16)
+
+    def add_node(self, node_id: str):
+        self.nodes[node_id] = {}
+        self.ring.append((self._hash(node_id), node_id))
+        self.ring.sort()
+        print(f"Node '{node_id}' added")
+
+    def _get_node(self, key: str) -> str:
+        h = self._hash(key)
+        for hash_val, node_id in self.ring:
+            if h <= hash_val:
+                return node_id
+        return self.ring[0][1]  # Wrap around
+
+    def put(self, key: str, value: str):
+        node = self._get_node(key)
+        self.nodes[node][key] = value
+        print(f"PUT {key} → node '{node}'")
+
+    def get(self, key: str) -> Optional[str]:
+        node = self._get_node(key)
+        return self.nodes[node].get(key)
+
+# Usage
+store = DistributedKVStore()
+store.add_node("node-A")
+store.add_node("node-B")
+store.add_node("node-C")
+store.put("user:1", "Alice")    # Routes to one node
+store.put("user:2", "Bob")      # May route to different node
+print(store.get("user:1"))      # Alice`}
+  java={`import java.util.*;
+
+public class DistributedKVStore {
+    private final TreeMap<Integer, String> ring = new TreeMap<>();
+    private final Map<String, Map<String, String>> nodes = new HashMap<>();
+
+    private int hash(String key) {
+        return Math.abs(key.hashCode());
+    }
+
+    public void addNode(String nodeId) {
+        ring.put(hash(nodeId), nodeId);
+        nodes.put(nodeId, new HashMap<>());
+    }
+
+    private String getNode(String key) {
+        int h = hash(key);
+        Map.Entry<Integer, String> entry = ring.ceilingEntry(h);
+        return entry != null ? entry.getValue() : ring.firstEntry().getValue();
+    }
+
+    public void put(String key, String value) {
+        String node = getNode(key);
+        nodes.get(node).put(key, value);
+    }
+
+    public String get(String key) {
+        String node = getNode(key);
+        return nodes.get(node).get(key);
+    }
+}`}
+  go={`type DistributedKVStore struct {
+    ring    []hashNode
+    nodes   map[string]map[string]string
+}
+
+type hashNode struct {
+    hash   uint32
+    nodeID string
+}
+
+func NewStore() *DistributedKVStore {
+    return &DistributedKVStore{
+        nodes: make(map[string]map[string]string),
+    }
+}
+
+func (s *DistributedKVStore) hash(key string) uint32 {
+    h := fnv.New32a()
+    h.Write([]byte(key))
+    return h.Sum32()
+}
+
+func (s *DistributedKVStore) AddNode(nodeID string) {
+    s.ring = append(s.ring, hashNode{s.hash(nodeID), nodeID})
+    sort.Slice(s.ring, func(i, j int) bool {
+        return s.ring[i].hash < s.ring[j].hash
+    })
+    s.nodes[nodeID] = make(map[string]string)
+}
+
+func (s *DistributedKVStore) Put(key, value string) {
+    node := s.getNode(key)
+    s.nodes[node][key] = value
+}
+
+func (s *DistributedKVStore) Get(key string) string {
+    node := s.getNode(key)
+    return s.nodes[node][key]
+}`}
+  cpp={`class DistributedKVStore {
+    std::map<size_t, std::string> ring;
+    std::map<std::string, std::unordered_map<std::string, std::string>> nodes;
+
+    size_t hash(const std::string& key) {
+        return std::hash<std::string>{}(key);
+    }
+
+    std::string getNode(const std::string& key) {
+        auto it = ring.lower_bound(hash(key));
+        if (it == ring.end()) it = ring.begin();
+        return it->second;
+    }
+
+public:
+    void addNode(const std::string& nodeId) {
+        ring[hash(nodeId)] = nodeId;
+        nodes[nodeId] = {};
+    }
+
+    void put(const std::string& key, const std::string& value) {
+        nodes[getNode(key)][key] = value;
+    }
+
+    std::string get(const std::string& key) {
+        return nodes[getNode(key)][key];
+    }
+};`}
+/>
+
+---
+
+## ⚖️ Pros & Cons
+
+| Pros ✅ | Cons ❌ |
+|---------|---------|
+| Horizontal scalability | Network failures and latency |
+| Fault tolerance | Complexity in debugging |
+| Geographic distribution | Data consistency challenges |
+| No single point of failure | Higher operational cost |
+
+---
+
+## 🧩 When to Use
+
+- **Use when:** You need to handle more traffic than a single machine can serve, need high availability, or serve users globally
+- **Avoid when:** A single server handles your load comfortably — distributed systems add unnecessary complexity
+
+---
+
+## 🔗 Related Concepts
+
+- [CAP Theorem](/concepts/hld/cap-theorem) — Trade-offs between Consistency, Availability, Partition Tolerance
+- [Consistent Hashing](/concepts/hld/consistent-hashing) — Distributing data across nodes
+- [Database Replication](/concepts/hld/database-replication) — Keeping copies of data in sync
+
+---
+
+## 📝 Quick Quiz
+
+**Q1: A social media app shows different like counts for the same post to two users viewing it simultaneously. Which consistency model is this?**
+
+A) Strong consistency  B) Eventual consistency
+
+**Answer: B** — Eventual consistency means replicas will converge over time, but different users may see different values temporarily.

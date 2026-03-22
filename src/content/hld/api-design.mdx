@@ -1,0 +1,206 @@
+# 🎯 What is API Design?
+
+**API (Application Programming Interface) Design** is the practice of defining how software components communicate with each other. The three most popular API paradigms are **REST**, **GraphQL**, and **gRPC**.
+
+> **Real-world analogy:** Think of ordering food. **REST** is like a fixed menu — you pick item #3 and get exactly what they serve. **GraphQL** is like a buffet — you pick exactly what you want from each dish. **gRPC** is like a drive-through intercom — ultra fast, but both you and the restaurant need to speak the same protocol.
+
+---
+
+## 🌍 Real-World Example
+
+**GitHub** offers all three: REST API (v3), GraphQL API (v4), and gRPC internally. They moved to GraphQL because mobile clients needed to fetch user profile, repos, and contributions in one request instead of three separate REST calls.
+
+---
+
+## 🔍 REST (Representational State Transfer)
+
+The most widely used API paradigm. Based on HTTP methods and resources.
+
+| HTTP Method | Purpose | Example |
+|:-----------:|---------|---------|
+| GET | Read data | `GET /api/users/123` |
+| POST | Create data | `POST /api/users` |
+| PUT | Update (replace) | `PUT /api/users/123` |
+| PATCH | Update (partial) | `PATCH /api/users/123` |
+| DELETE | Delete data | `DELETE /api/users/123` |
+
+## 🔍 GraphQL
+
+Clients specify **exactly** what data they need in a single query.
+
+## 🔍 gRPC
+
+A high-performance RPC framework using Protocol Buffers for serialization.
+
+---
+
+## 📊 Comparison
+
+| Feature | REST | GraphQL | gRPC |
+|---------|:---:|:---:|:---:|
+| **Protocol** | HTTP/1.1 | HTTP/1.1 | HTTP/2 |
+| **Data Format** | JSON | JSON | Protocol Buffers (binary) |
+| **Schema** | Optional (OpenAPI) | Required (SDL) | Required (.proto) |
+| **Over-fetching** | Common | No (client picks fields) | No |
+| **Under-fetching** | Common (N+1 calls) | No (one query) | No |
+| **Learning Curve** | Low | Medium | High |
+| **Browser Support** | Native | Native | Limited (needs grpc-web) |
+| **Caching** | Easy (HTTP caching) | Complex | Complex |
+| **Best For** | Public APIs, CRUD | Mobile apps, complex queries | Internal services, streaming |
+
+---
+
+## 💻 Code Example: REST vs GraphQL vs gRPC
+
+<CodeBlock
+  title="API Design Comparison"
+  java={`// REST Controller (Spring Boot)
+@RestController
+@RequestMapping("/api/users")
+public class UserController {
+
+    @GetMapping("/{id}")
+    public User getUser(@PathVariable Long id) {
+        return userService.findById(id);
+    }
+
+    @PostMapping
+    public User createUser(@RequestBody CreateUserRequest req) {
+        return userService.create(req.getName(), req.getEmail());
+    }
+
+    @PutMapping("/{id}")
+    public User updateUser(@PathVariable Long id, @RequestBody UpdateUserRequest req) {
+        return userService.update(id, req);
+    }
+
+    @DeleteMapping("/{id}")
+    public void deleteUser(@PathVariable Long id) {
+        userService.delete(id);
+    }
+}`}
+  python={`# REST API (FastAPI)
+from fastapi import FastAPI
+from pydantic import BaseModel
+
+app = FastAPI()
+
+class User(BaseModel):
+    name: str
+    email: str
+
+@app.get("/api/users/{user_id}")
+async def get_user(user_id: int):
+    return user_service.find_by_id(user_id)
+
+@app.post("/api/users")
+async def create_user(user: User):
+    return user_service.create(user.name, user.email)
+
+@app.put("/api/users/{user_id}")
+async def update_user(user_id: int, user: User):
+    return user_service.update(user_id, user)
+
+@app.delete("/api/users/{user_id}")
+async def delete_user(user_id: int):
+    return user_service.delete(user_id)
+
+# GraphQL Query Example
+"""
+query {
+  user(id: 123) {
+    name
+    email
+    posts {
+      title
+      createdAt
+    }
+  }
+}
+"""`}
+  go={`// REST API (Go net/http)
+func (h *UserHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+    switch r.Method {
+    case http.MethodGet:
+        id := extractID(r)
+        user, err := h.service.FindByID(id)
+        if err != nil {
+            http.Error(w, "Not found", 404)
+            return
+        }
+        json.NewEncoder(w).Encode(user)
+
+    case http.MethodPost:
+        var req CreateUserRequest
+        json.NewDecoder(r.Body).Decode(&req)
+        user := h.service.Create(req.Name, req.Email)
+        w.WriteHeader(http.StatusCreated)
+        json.NewEncoder(w).Encode(user)
+
+    case http.MethodDelete:
+        id := extractID(r)
+        h.service.Delete(id)
+        w.WriteHeader(http.StatusNoContent)
+    }
+}`}
+  cpp={`// REST endpoint (conceptual)
+class UserController {
+public:
+    HttpResponse handleRequest(const HttpRequest& req) {
+        if (req.method == "GET") {
+            auto user = userService.findById(req.pathParam("id"));
+            return HttpResponse(200, user.toJson());
+        }
+        if (req.method == "POST") {
+            auto user = userService.create(req.body());
+            return HttpResponse(201, user.toJson());
+        }
+        if (req.method == "DELETE") {
+            userService.remove(req.pathParam("id"));
+            return HttpResponse(204);
+        }
+        return HttpResponse(405, "Method not allowed");
+    }
+};`}
+/>
+
+---
+
+## ⚖️ Pros & Cons
+
+| API | Pros ✅ | Cons ❌ |
+|-----|---------|---------|
+| **REST** | Simple, cacheable, widely supported | Over/under-fetching |
+| **GraphQL** | Flexible queries, single endpoint | Complex caching, N+1 on server |
+| **gRPC** | Very fast, streaming, strong typing | Browser support, steeper learning curve |
+
+---
+
+## 🧩 When to Use
+
+- **REST**: Public APIs, simple CRUD, when HTTP caching matters
+- **GraphQL**: Mobile apps, dashboards with varied data needs, avoiding round trips
+- **gRPC**: Internal microservice-to-microservice calls, real-time streaming, performance-critical services
+
+---
+
+## 🔗 Related Concepts
+
+- [Microservices](/concepts/hld/microservices) — APIs are how microservices communicate
+- [Rate Limiting](/concepts/hld/rate-limiting) — Applied at the API layer
+- [Load Balancing](/concepts/hld/load-balancing) — Routes API traffic to backend servers
+- [Real-Time Communication](/concepts/hld/real-time-communication) — gRPC streaming vs WebSockets
+
+---
+
+## 📝 Quick Quiz
+
+**Q1: A mobile app needs to show a user's name, avatar, and their 3 most recent posts on one screen. With REST, this requires 2 API calls. Which alternative solves this?**
+
+A) gRPC  B) GraphQL  C) WebSockets
+
+**Answer: B** — GraphQL lets the client request all needed data in a single query.
+
+---
+
+*Sources: GitHub Engineering Blog, Google gRPC Documentation, GraphQL Foundation, Stripe API Design*

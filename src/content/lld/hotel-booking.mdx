@@ -1,0 +1,336 @@
+# 🎯 Hotel Booking System Design
+
+Design an **Object-Oriented Hotel Booking System** that manages rooms, reservations, check-in/out, and payment processing for a hotel chain.
+
+> **Real-world analogy:** A hotel front desk system — guests search available rooms, make reservations, check in/out, and the system handles room allocation, pricing, and billing.
+
+---
+
+## 📋 Requirements
+
+### Functional
+- Search available rooms by date range, type, and capacity
+- Make, modify, and cancel reservations
+- Check-in and check-out guests
+- Calculate billing (room charges + extras)
+- Support multiple room types (Standard, Deluxe, Suite)
+
+---
+
+## 🔍 Class Design
+
+| Class | Responsibility |
+|-------|---------------|
+| `Hotel` | Manages rooms and reservations |
+| `Room` | Physical room with type, price, floor |
+| `Guest` | Guest information and booking history |
+| `Reservation` | Links guest, room, dates, status |
+| `Invoice` | Billing and payment details |
+
+---
+
+## 💻 Code Example
+
+<CodeBlock
+  title="Hotel Booking System"
+  python={`from enum import Enum
+from dataclasses import dataclass, field
+from datetime import date, timedelta
+
+class RoomType(Enum):
+    STANDARD = "Standard"
+    DELUXE = "Deluxe"
+    SUITE = "Suite"
+
+class ReservationStatus(Enum):
+    CONFIRMED = "confirmed"
+    CHECKED_IN = "checked_in"
+    CHECKED_OUT = "checked_out"
+    CANCELLED = "cancelled"
+
+ROOM_PRICES = {
+    RoomType.STANDARD: 100.0,
+    RoomType.DELUXE: 200.0,
+    RoomType.SUITE: 400.0,
+}
+
+@dataclass
+class Room:
+    room_number: str
+    room_type: RoomType
+    floor: int
+    capacity: int
+    price_per_night: float
+
+@dataclass
+class Guest:
+    guest_id: str
+    name: str
+    email: str
+    phone: str
+
+@dataclass
+class Reservation:
+    reservation_id: str
+    guest: Guest
+    room: Room
+    check_in: date
+    check_out: date
+    status: ReservationStatus = ReservationStatus.CONFIRMED
+    extras: list = field(default_factory=list)
+
+    @property
+    def num_nights(self) -> int:
+        return (self.check_out - self.check_in).days
+
+    @property
+    def total_cost(self) -> float:
+        room_cost = self.num_nights * self.room.price_per_night
+        extras_cost = sum(e["price"] for e in self.extras)
+        return room_cost + extras_cost
+
+class Hotel:
+    def __init__(self, name: str):
+        self.name = name
+        self._rooms: list[Room] = []
+        self._reservations: dict[str, Reservation] = {}
+        self._counter = 0
+
+    def add_room(self, number: str, room_type: RoomType,
+                 floor: int, capacity: int):
+        room = Room(number, room_type, floor, capacity,
+                    ROOM_PRICES[room_type])
+        self._rooms.append(room)
+
+    def search_available(self, check_in: date, check_out: date,
+                         room_type: RoomType | None = None) -> list[Room]:
+        booked_rooms = set()
+        for res in self._reservations.values():
+            if res.status in (ReservationStatus.CONFIRMED,
+                              ReservationStatus.CHECKED_IN):
+                if res.check_in < check_out and res.check_out > check_in:
+                    booked_rooms.add(res.room.room_number)
+
+        available = [
+            r for r in self._rooms
+            if r.room_number not in booked_rooms
+            and (room_type is None or r.room_type == room_type)
+        ]
+        return available
+
+    def make_reservation(self, guest: Guest, room_number: str,
+                         check_in: date, check_out: date) -> Reservation | None:
+        room = next((r for r in self._rooms
+                     if r.room_number == room_number), None)
+        if not room:
+            return None
+
+        # Check availability
+        available = self.search_available(check_in, check_out)
+        if room not in available:
+            print(f"❌ Room {room_number} not available")
+            return None
+
+        self._counter += 1
+        res_id = f"RES-{self._counter:04d}"
+        reservation = Reservation(res_id, guest, room, check_in, check_out)
+        self._reservations[res_id] = reservation
+        print(f"✅ Reservation {res_id}: {guest.name} → Room {room_number}")
+        return reservation
+
+    def check_in(self, reservation_id: str) -> bool:
+        res = self._reservations.get(reservation_id)
+        if not res or res.status != ReservationStatus.CONFIRMED:
+            return False
+        res.status = ReservationStatus.CHECKED_IN
+        print(f"🏨 {res.guest.name} checked in to Room {res.room.room_number}")
+        return True
+
+    def check_out(self, reservation_id: str) -> float:
+        res = self._reservations.get(reservation_id)
+        if not res or res.status != ReservationStatus.CHECKED_IN:
+            return 0.0
+        res.status = ReservationStatus.CHECKED_OUT
+        total = res.total_cost
+        print(f"👋 {res.guest.name} checked out. Total: ${'$'}{total:.2f}")
+        return total
+
+    def cancel_reservation(self, reservation_id: str) -> bool:
+        res = self._reservations.get(reservation_id)
+        if not res or res.status != ReservationStatus.CONFIRMED:
+            return False
+        res.status = ReservationStatus.CANCELLED
+        return True
+
+# Usage
+hotel = Hotel("Grand Hotel")
+hotel.add_room("101", RoomType.STANDARD, 1, 2)
+hotel.add_room("201", RoomType.DELUXE, 2, 2)
+hotel.add_room("301", RoomType.SUITE, 3, 4)
+
+guest = Guest("G001", "Alice", "alice@email.com", "555-0101")
+rooms = hotel.search_available(date(2025, 7, 1), date(2025, 7, 5))
+res = hotel.make_reservation(guest, "201", date(2025, 7, 1), date(2025, 7, 5))
+hotel.check_in(res.reservation_id)
+hotel.check_out(res.reservation_id)  # $800 (4 nights × $200)`}
+  java={`public class Hotel {
+    private final List<Room> rooms = new ArrayList<>();
+    private final Map<String, Reservation> reservations = new HashMap<>();
+    private int counter = 0;
+
+    public List<Room> searchAvailable(LocalDate checkIn,
+            LocalDate checkOut, RoomType type) {
+        Set<String> booked = reservations.values().stream()
+            .filter(r -> r.getStatus() == Status.CONFIRMED
+                || r.getStatus() == Status.CHECKED_IN)
+            .filter(r -> r.getCheckIn().isBefore(checkOut)
+                && r.getCheckOut().isAfter(checkIn))
+            .map(r -> r.getRoom().getNumber())
+            .collect(Collectors.toSet());
+
+        return rooms.stream()
+            .filter(r -> !booked.contains(r.getNumber()))
+            .filter(r -> type == null || r.getType() == type)
+            .toList();
+    }
+
+    public Optional<Reservation> makeReservation(Guest guest,
+            String roomNum, LocalDate in, LocalDate out) {
+        Room room = rooms.stream()
+            .filter(r -> r.getNumber().equals(roomNum))
+            .findFirst().orElse(null);
+        if (room == null) return Optional.empty();
+
+        var available = searchAvailable(in, out, null);
+        if (!available.contains(room)) return Optional.empty();
+
+        var res = new Reservation(
+            "RES-" + (++counter), guest, room, in, out);
+        reservations.put(res.getId(), res);
+        return Optional.of(res);
+    }
+
+    public double checkOut(String resId) {
+        var res = reservations.get(resId);
+        if (res == null) return 0;
+        res.setStatus(Status.CHECKED_OUT);
+        return res.getTotalCost();
+    }
+}`}
+  go={`type Hotel struct {
+    Name         string
+    rooms        []*Room
+    reservations map[string]*Reservation
+    counter      int
+    mu           sync.Mutex
+}
+
+func (h *Hotel) SearchAvailable(checkIn, checkOut time.Time,
+        roomType *RoomType) []*Room {
+    booked := make(map[string]bool)
+    for _, res := range h.reservations {
+        if res.Status == Confirmed || res.Status == CheckedIn {
+            if res.CheckIn.Before(checkOut) &&
+                    res.CheckOut.After(checkIn) {
+                booked[res.Room.Number] = true
+            }
+        }
+    }
+
+    var available []*Room
+    for _, room := range h.rooms {
+        if !booked[room.Number] {
+            if roomType == nil || room.Type == *roomType {
+                available = append(available, room)
+            }
+        }
+    }
+    return available
+}
+
+func (h *Hotel) MakeReservation(guest *Guest, roomNum string,
+        checkIn, checkOut time.Time) *Reservation {
+    h.mu.Lock()
+    defer h.mu.Unlock()
+
+    var room *Room
+    for _, r := range h.rooms {
+        if r.Number == roomNum { room = r; break }
+    }
+    if room == nil { return nil }
+
+    h.counter++
+    res := &Reservation{
+        ID: fmt.Sprintf("RES-%04d", h.counter),
+        Guest: guest, Room: room,
+        CheckIn: checkIn, CheckOut: checkOut,
+        Status: Confirmed,
+    }
+    h.reservations[res.ID] = res
+    return res
+}`}
+  cpp={`class Hotel {
+    std::vector<Room> rooms_;
+    std::map<std::string, Reservation> reservations_;
+    int counter_ = 0;
+    std::mutex mu_;
+
+public:
+    std::vector<Room*> searchAvailable(
+            Date checkIn, Date checkOut) {
+        std::set<std::string> booked;
+        for (auto& [id, res] : reservations_) {
+            if (res.isActive() &&
+                res.checkIn < checkOut &&
+                res.checkOut > checkIn) {
+                booked.insert(res.room->number);
+            }
+        }
+
+        std::vector<Room*> available;
+        for (auto& room : rooms_) {
+            if (booked.find(room.number) == booked.end()) {
+                available.push_back(&room);
+            }
+        }
+        return available;
+    }
+
+    std::optional<Reservation> makeReservation(
+            Guest& guest, const std::string& roomNum,
+            Date checkIn, Date checkOut) {
+        std::lock_guard<std::mutex> lock(mu_);
+        auto avail = searchAvailable(checkIn, checkOut);
+        for (auto* room : avail) {
+            if (room->number == roomNum) {
+                counter_++;
+                Reservation res{
+                    "RES-" + std::to_string(counter_),
+                    &guest, room, checkIn, checkOut
+                };
+                reservations_[res.id] = res;
+                return res;
+            }
+        }
+        return std::nullopt;
+    }
+};`}
+/>
+
+---
+
+## 🔗 Related Concepts
+
+- [SOLID Principles](/concepts/lld/solid-principles) — SRP: Hotel, Room, Reservation as separate concerns
+- [Behavioral Patterns](/concepts/lld/behavioral-patterns) — State pattern for reservation lifecycle
+- [Database Design](/concepts/hld/database-design) — Schema for rooms, guests, bookings
+
+---
+
+## 📝 Quick Quiz
+
+**Q1: Two users try to book the same room for overlapping dates simultaneously. How do you prevent double-booking?**
+
+A) First-come-first-served with no locks  B) Use a lock/transaction when creating reservations
+
+**Answer: B** — The `make_reservation` method should be thread-safe. Check availability and create the reservation atomically within a lock or database transaction.

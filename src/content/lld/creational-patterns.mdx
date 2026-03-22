@@ -1,0 +1,461 @@
+# 🎯 What are Creational Design Patterns?
+
+**Creational Design Patterns** deal with object creation mechanisms — they provide ways to create objects while hiding the creation logic, making systems more flexible about **which** objects get created, **how** they get created, and **who** creates them.
+
+> **Real-world analogy:** Instead of baking every cake from scratch yourself, you can use a **recipe** (Factory), follow a **step-by-step guide** (Builder), order a **pre-made copy** (Prototype), or get it from the **one and only bakery in town** (Singleton).
+
+---
+
+## 🌍 Real-World Example
+
+**Spring Framework** (used by Amazon, Netflix) uses the Factory pattern extensively. When you define a `@Bean`, Spring's IoC container uses factories to create and manage all your objects. You never call `new` directly — the framework handles object creation for you.
+
+---
+
+## 🔍 The Five Creational Patterns
+
+---
+
+## 1. Singleton Pattern
+
+> **Ensure a class has only one instance and provide a global point of access to it.**
+
+**Analogy:** There's only **one president** of a country at any time. No matter how many people ask "who's the president?", they all get the same person.
+
+**Use when:** Database connections, configuration managers, logging services, thread pools.
+
+<CodeBlock
+  title="Singleton Pattern"
+  java={`public class DatabaseConnection {
+    // The ONE instance
+    private static volatile DatabaseConnection instance;
+
+    private DatabaseConnection() {
+        // Private constructor prevents direct instantiation
+        System.out.println("Database connection created");
+    }
+
+    public static DatabaseConnection getInstance() {
+        if (instance == null) {
+            synchronized (DatabaseConnection.class) {
+                if (instance == null) {  // Double-checked locking
+                    instance = new DatabaseConnection();
+                }
+            }
+        }
+        return instance;
+    }
+
+    public void query(String sql) {
+        System.out.println("Executing: " + sql);
+    }
+}
+
+// Usage: Always returns the SAME instance
+DatabaseConnection db1 = DatabaseConnection.getInstance();
+DatabaseConnection db2 = DatabaseConnection.getInstance();
+// db1 == db2 → true`}
+  python={`class DatabaseConnection:
+    _instance = None
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+            print("Database connection created")
+        return cls._instance
+
+    def query(self, sql: str):
+        print(f"Executing: {sql}")
+
+# Usage: Always returns the SAME instance
+db1 = DatabaseConnection()
+db2 = DatabaseConnection()
+print(db1 is db2)  # True`}
+  go={`package singleton
+
+import "sync"
+
+type DatabaseConnection struct{}
+
+var (
+    instance *DatabaseConnection
+    once     sync.Once
+)
+
+func GetInstance() *DatabaseConnection {
+    once.Do(func() {
+        instance = &DatabaseConnection{}
+        fmt.Println("Database connection created")
+    })
+    return instance
+}
+
+func (d *DatabaseConnection) Query(sql string) {
+    fmt.Printf("Executing: %s\\n", sql)
+}`}
+  cpp={`class DatabaseConnection {
+    static DatabaseConnection* instance;
+    static std::mutex mutex;
+
+    DatabaseConnection() {
+        std::cout << "Database connection created" << std::endl;
+    }
+
+public:
+    DatabaseConnection(const DatabaseConnection&) = delete;
+    DatabaseConnection& operator=(const DatabaseConnection&) = delete;
+
+    static DatabaseConnection* getInstance() {
+        std::lock_guard<std::mutex> lock(mutex);
+        if (instance == nullptr) {
+            instance = new DatabaseConnection();
+        }
+        return instance;
+    }
+
+    void query(const std::string& sql) {
+        std::cout << "Executing: " << sql << std::endl;
+    }
+};`}
+  highlightLines={{ java: [3, 10, 11, 12, 13, 14], python: [4, 5, 6] }}
+/>
+
+---
+
+## 2. Factory Method Pattern
+
+> **Define an interface for creating objects, but let subclasses decide which class to instantiate.**
+
+**Analogy:** You walk into a **pizza shop** and say "I want pizza." The shop decides how to make it based on the type you request. You don't need to know the recipe — you just get a pizza.
+
+<CodeBlock
+  title="Factory Method Pattern"
+  java={`// Product interface
+public interface Notification {
+    void send(String message);
+}
+
+// Concrete products
+public class EmailNotification implements Notification {
+    public void send(String message) {
+        System.out.println("Email: " + message);
+    }
+}
+
+public class SmsNotification implements Notification {
+    public void send(String message) {
+        System.out.println("SMS: " + message);
+    }
+}
+
+public class PushNotification implements Notification {
+    public void send(String message) {
+        System.out.println("Push: " + message);
+    }
+}
+
+// Factory
+public class NotificationFactory {
+    public static Notification create(String type) {
+        return switch (type.toLowerCase()) {
+            case "email" -> new EmailNotification();
+            case "sms" -> new SmsNotification();
+            case "push" -> new PushNotification();
+            default -> throw new IllegalArgumentException("Unknown: " + type);
+        };
+    }
+}
+
+// Usage: Client doesn't know concrete classes
+Notification n = NotificationFactory.create("email");
+n.send("Hello!");`}
+  python={`from abc import ABC, abstractmethod
+
+# Product interface
+class Notification(ABC):
+    @abstractmethod
+    def send(self, message: str) -> None: ...
+
+# Concrete products
+class EmailNotification(Notification):
+    def send(self, message: str):
+        print(f"Email: {message}")
+
+class SmsNotification(Notification):
+    def send(self, message: str):
+        print(f"SMS: {message}")
+
+class PushNotification(Notification):
+    def send(self, message: str):
+        print(f"Push: {message}")
+
+# Factory
+class NotificationFactory:
+    _creators = {
+        "email": EmailNotification,
+        "sms": SmsNotification,
+        "push": PushNotification,
+    }
+
+    @staticmethod
+    def create(type_: str) -> Notification:
+        creator = NotificationFactory._creators.get(type_.lower())
+        if not creator:
+            raise ValueError(f"Unknown type: {type_}")
+        return creator()
+
+# Usage
+notification = NotificationFactory.create("email")
+notification.send("Hello!")`}
+  go={`type Notification interface {
+    Send(message string)
+}
+
+type EmailNotification struct{}
+func (e *EmailNotification) Send(msg string) { fmt.Println("Email:", msg) }
+
+type SmsNotification struct{}
+func (s *SmsNotification) Send(msg string) { fmt.Println("SMS:", msg) }
+
+type PushNotification struct{}
+func (p *PushNotification) Send(msg string) { fmt.Println("Push:", msg) }
+
+// Factory function
+func CreateNotification(nType string) (Notification, error) {
+    switch strings.ToLower(nType) {
+    case "email":
+        return &EmailNotification{}, nil
+    case "sms":
+        return &SmsNotification{}, nil
+    case "push":
+        return &PushNotification{}, nil
+    default:
+        return nil, fmt.Errorf("unknown type: %s", nType)
+    }
+}`}
+  cpp={`class Notification {
+public:
+    virtual void send(const std::string& msg) = 0;
+    virtual ~Notification() = default;
+};
+
+class EmailNotification : public Notification {
+public:
+    void send(const std::string& msg) override {
+        std::cout << "Email: " << msg << std::endl;
+    }
+};
+
+class SmsNotification : public Notification {
+public:
+    void send(const std::string& msg) override {
+        std::cout << "SMS: " << msg << std::endl;
+    }
+};
+
+// Factory
+class NotificationFactory {
+public:
+    static std::unique_ptr<Notification> create(const std::string& type) {
+        if (type == "email") return std::make_unique<EmailNotification>();
+        if (type == "sms") return std::make_unique<SmsNotification>();
+        throw std::invalid_argument("Unknown type: " + type);
+    }
+};`}
+/>
+
+---
+
+## 3. Builder Pattern
+
+> **Separate the construction of a complex object from its representation, allowing the same construction process to create different representations.**
+
+**Analogy:** Ordering a **custom burger**: "I want a beef patty, add cheese, no onions, extra pickles, toasted bun." You build it step by step. The builder lets you construct complex objects piece by piece.
+
+<CodeBlock
+  title="Builder Pattern"
+  java={`public class HttpRequest {
+    private final String url;
+    private final String method;
+    private final Map<String, String> headers;
+    private final String body;
+    private final int timeout;
+
+    private HttpRequest(Builder builder) {
+        this.url = builder.url;
+        this.method = builder.method;
+        this.headers = builder.headers;
+        this.body = builder.body;
+        this.timeout = builder.timeout;
+    }
+
+    public static class Builder {
+        private final String url;      // Required
+        private String method = "GET"; // Default
+        private Map<String, String> headers = new HashMap<>();
+        private String body = null;
+        private int timeout = 30000;
+
+        public Builder(String url) { this.url = url; }
+
+        public Builder method(String method) {
+            this.method = method; return this;
+        }
+        public Builder header(String key, String value) {
+            this.headers.put(key, value); return this;
+        }
+        public Builder body(String body) {
+            this.body = body; return this;
+        }
+        public Builder timeout(int ms) {
+            this.timeout = ms; return this;
+        }
+        public HttpRequest build() {
+            return new HttpRequest(this);
+        }
+    }
+}
+
+// Usage: Fluent, readable construction
+HttpRequest request = new HttpRequest.Builder("https://api.example.com/users")
+    .method("POST")
+    .header("Content-Type", "application/json")
+    .body("{\\"name\\": \\"Alice\\"}")
+    .timeout(5000)
+    .build();`}
+  python={`class HttpRequest:
+    def __init__(self, url: str):
+        self.url = url
+        self.method = "GET"
+        self.headers: dict[str, str] = {}
+        self.body: str | None = None
+        self.timeout = 30000
+
+class HttpRequestBuilder:
+    def __init__(self, url: str):
+        self._request = HttpRequest(url)
+
+    def method(self, method: str) -> "HttpRequestBuilder":
+        self._request.method = method
+        return self
+
+    def header(self, key: str, value: str) -> "HttpRequestBuilder":
+        self._request.headers[key] = value
+        return self
+
+    def body(self, body: str) -> "HttpRequestBuilder":
+        self._request.body = body
+        return self
+
+    def timeout(self, ms: int) -> "HttpRequestBuilder":
+        self._request.timeout = ms
+        return self
+
+    def build(self) -> HttpRequest:
+        return self._request
+
+# Usage: Fluent, readable construction
+request = (HttpRequestBuilder("https://api.example.com/users")
+    .method("POST")
+    .header("Content-Type", "application/json")
+    .body('{"name": "Alice"}')
+    .timeout(5000)
+    .build())`}
+  go={`type HttpRequest struct {
+    URL     string
+    Method  string
+    Headers map[string]string
+    Body    string
+    Timeout int
+}
+
+type HttpRequestBuilder struct {
+    request HttpRequest
+}
+
+func NewRequestBuilder(url string) *HttpRequestBuilder {
+    return &HttpRequestBuilder{
+        request: HttpRequest{URL: url, Method: "GET", Headers: map[string]string{}, Timeout: 30000},
+    }
+}
+
+func (b *HttpRequestBuilder) Method(m string) *HttpRequestBuilder { b.request.Method = m; return b }
+func (b *HttpRequestBuilder) Header(k, v string) *HttpRequestBuilder { b.request.Headers[k] = v; return b }
+func (b *HttpRequestBuilder) Body(body string) *HttpRequestBuilder { b.request.Body = body; return b }
+func (b *HttpRequestBuilder) Timeout(ms int) *HttpRequestBuilder { b.request.Timeout = ms; return b }
+func (b *HttpRequestBuilder) Build() HttpRequest { return b.request }`}
+  cpp={`class HttpRequest {
+    std::string url, method, body;
+    std::map<std::string, std::string> headers;
+    int timeout;
+
+    HttpRequest(std::string url) : url(std::move(url)), method("GET"), timeout(30000) {}
+    friend class HttpRequestBuilder;
+};
+
+class HttpRequestBuilder {
+    HttpRequest request;
+public:
+    HttpRequestBuilder(const std::string& url) : request(url) {}
+
+    HttpRequestBuilder& method(const std::string& m) { request.method = m; return *this; }
+    HttpRequestBuilder& header(const std::string& k, const std::string& v) {
+        request.headers[k] = v; return *this;
+    }
+    HttpRequestBuilder& body(const std::string& b) { request.body = b; return *this; }
+    HttpRequestBuilder& timeout(int ms) { request.timeout = ms; return *this; }
+    HttpRequest build() { return request; }
+};`}
+/>
+
+---
+
+## 📊 Pattern Comparison
+
+| Pattern | Purpose | When to Use | Complexity |
+|---------|---------|-------------|:----------:|
+| **Singleton** | One instance globally | Config, logging, connection pools | Low |
+| **Factory** | Create objects without exposing logic | When the exact type is determined at runtime | Medium |
+| **Abstract Factory** | Create families of related objects | Cross-platform UI, themed components | High |
+| **Builder** | Construct complex objects step by step | Objects with many optional parameters | Medium |
+| **Prototype** | Clone existing objects | When creation is expensive, need copies | Low |
+
+---
+
+## ⚖️ Pros & Cons
+
+| Pattern | Pros ✅ | Cons ❌ |
+|---------|---------|---------|
+| Singleton | Easy global access, resource control | Hard to test, hidden dependencies |
+| Factory | Decouples creation from usage | Can grow complex with many types |
+| Builder | Readable construction, immutable objects | More code than simple constructors |
+| Prototype | Avoids costly initialization | Deep copy can be tricky |
+
+---
+
+## 🔗 Related Concepts
+
+- [SOLID Principles](/concepts/lld/solid-principles) — Creational patterns implement OCP and DIP
+- [Design Patterns — Structural](/concepts/lld/structural-patterns) — How objects are composed
+- [Design Patterns — Behavioral](/concepts/lld/behavioral-patterns) — How objects communicate
+- [Connection Pool](/concepts/lld/connection-pool) — Uses Singleton + Factory patterns
+
+---
+
+## 📝 Quick Quiz
+
+**Q1: Your app needs exactly one database connection pool shared across all services. Which pattern?**
+
+A) Factory  B) Builder  C) Singleton
+
+**Answer: C** — Singleton ensures only one instance of the connection pool exists.
+
+**Q2: You're building a document converter that can output PDF, Word, or HTML. The output type is determined by user input. Which pattern?**
+
+A) Singleton  B) Factory  C) Builder
+
+**Answer: B** — Factory pattern creates the right converter based on the requested output type at runtime.
+
+---
+
+*Sources: Design Patterns: Elements of Reusable Object-Oriented Software (GoF), Head First Design Patterns, Spring Framework Documentation*

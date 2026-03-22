@@ -1,0 +1,349 @@
+# 🎯 File System Design
+
+Design an **Object-Oriented File System** supporting files, directories, hierarchical navigation, and operations like create, delete, move, and search.
+
+> **Real-world analogy:** A filing cabinet with folders inside folders. Each folder can contain documents (files) or more folders (subdirectories), and each item has a name, size, and permissions.
+
+---
+
+## 📋 Requirements
+
+### Functional
+- Create files and directories
+- Navigate the directory tree (cd, ls, pwd)
+- Delete files/directories (recursive)
+- Move/rename files
+- Search by name pattern
+- Track file size and metadata
+
+---
+
+## 🔍 Class Design (Composite Pattern)
+
+| Class | Responsibility |
+|-------|---------------|
+| `FileSystemEntry` | Abstract base for files and directories |
+| `File` | Leaf node — stores content and size |
+| `Directory` | Composite node — contains children entries |
+| `FileSystem` | Manages the root and current directory |
+
+---
+
+## 💻 Code Example
+
+<CodeBlock
+  title="File System"
+  python={`from abc import ABC, abstractmethod
+from datetime import datetime
+
+class FileSystemEntry(ABC):
+    def __init__(self, name: str, parent: 'Directory | None' = None):
+        self.name = name
+        self.parent = parent
+        self.created_at = datetime.now()
+        self.modified_at = datetime.now()
+
+    @abstractmethod
+    def size(self) -> int: ...
+
+    @property
+    def path(self) -> str:
+        if self.parent is None:
+            return "/" + self.name
+        parent_path = self.parent.path
+        if parent_path == "/":
+            return "/" + self.name
+        return parent_path + "/" + self.name
+
+class File(FileSystemEntry):
+    def __init__(self, name: str, content: str = "",
+                 parent: 'Directory | None' = None):
+        super().__init__(name, parent)
+        self._content = content
+
+    @property
+    def content(self) -> str:
+        return self._content
+
+    @content.setter
+    def content(self, value: str):
+        self._content = value
+        self.modified_at = datetime.now()
+
+    def size(self) -> int:
+        return len(self._content.encode())
+
+class Directory(FileSystemEntry):
+    def __init__(self, name: str, parent: 'Directory | None' = None):
+        super().__init__(name, parent)
+        self._children: dict[str, FileSystemEntry] = {}
+
+    def add(self, entry: FileSystemEntry):
+        entry.parent = self
+        self._children[entry.name] = entry
+
+    def remove(self, name: str) -> FileSystemEntry | None:
+        return self._children.pop(name, None)
+
+    def get(self, name: str) -> FileSystemEntry | None:
+        return self._children.get(name)
+
+    def list_contents(self) -> list[str]:
+        result = []
+        for name, entry in sorted(self._children.items()):
+            prefix = "📁" if isinstance(entry, Directory) else "📄"
+            result.append(f"{prefix} {name}")
+        return result
+
+    def size(self) -> int:
+        return sum(child.size() for child in self._children.values())
+
+    def search(self, pattern: str) -> list[FileSystemEntry]:
+        results = []
+        for child in self._children.values():
+            if pattern.lower() in child.name.lower():
+                results.append(child)
+            if isinstance(child, Directory):
+                results.extend(child.search(pattern))
+        return results
+
+class FileSystem:
+    def __init__(self):
+        self.root = Directory("")
+        self.current = self.root
+
+    def pwd(self) -> str:
+        return self.current.path or "/"
+
+    def ls(self) -> list[str]:
+        return self.current.list_contents()
+
+    def cd(self, path: str) -> bool:
+        if path == "/":
+            self.current = self.root
+            return True
+        if path == "..":
+            if self.current.parent:
+                self.current = self.current.parent
+            return True
+
+        target = self.current.get(path)
+        if isinstance(target, Directory):
+            self.current = target
+            return True
+        return False
+
+    def mkdir(self, name: str) -> Directory:
+        d = Directory(name)
+        self.current.add(d)
+        return d
+
+    def touch(self, name: str, content: str = "") -> File:
+        f = File(name, content)
+        self.current.add(f)
+        return f
+
+    def rm(self, name: str) -> bool:
+        return self.current.remove(name) is not None
+
+    def find(self, pattern: str) -> list[str]:
+        return [e.path for e in self.root.search(pattern)]
+
+# Usage
+fs = FileSystem()
+fs.mkdir("src")
+fs.mkdir("docs")
+fs.cd("src")
+fs.touch("main.py", "print('hello')")
+fs.touch("utils.py", "# utils")
+fs.mkdir("tests")
+
+print(f"📍 {fs.pwd()}")     # /src
+print("\\n".join(fs.ls()))  # 📄 main.py, 📁 tests, 📄 utils.py
+
+fs.cd("/")
+print(fs.find("main"))  # ['/src/main.py']`}
+  java={`public abstract class FileSystemEntry {
+    protected String name;
+    protected Directory parent;
+
+    public abstract int size();
+    public String getPath() {
+        if (parent == null) return "/" + name;
+        String pp = parent.getPath();
+        return pp.equals("/") ? "/" + name : pp + "/" + name;
+    }
+}
+
+public class File extends FileSystemEntry {
+    private String content;
+    public File(String name, String content) {
+        this.name = name; this.content = content;
+    }
+    public int size() { return content.getBytes().length; }
+}
+
+public class Directory extends FileSystemEntry {
+    private final Map<String, FileSystemEntry> children
+        = new LinkedHashMap<>();
+
+    public void add(FileSystemEntry entry) {
+        entry.parent = this;
+        children.put(entry.name, entry);
+    }
+
+    public FileSystemEntry remove(String name) {
+        return children.remove(name);
+    }
+
+    public int size() {
+        return children.values().stream()
+            .mapToInt(FileSystemEntry::size).sum();
+    }
+
+    public List<FileSystemEntry> search(String pattern) {
+        List<FileSystemEntry> results = new ArrayList<>();
+        for (var entry : children.values()) {
+            if (entry.name.contains(pattern))
+                results.add(entry);
+            if (entry instanceof Directory dir)
+                results.addAll(dir.search(pattern));
+        }
+        return results;
+    }
+}
+
+public class FileSystem {
+    private final Directory root = new Directory("");
+    private Directory current = root;
+
+    public void cd(String path) {
+        if ("/".equals(path)) { current = root; return; }
+        if ("..".equals(path) && current.parent != null) {
+            current = current.parent; return;
+        }
+        var target = current.get(path);
+        if (target instanceof Directory dir) current = dir;
+    }
+
+    public void mkdir(String name) {
+        current.add(new Directory(name));
+    }
+}`}
+  go={`type Entry interface {
+    Name() string
+    Size() int
+    Path() string
+}
+
+type File struct {
+    name    string
+    content string
+    parent  *Dir
+}
+
+func (f *File) Name() string { return f.name }
+func (f *File) Size() int    { return len(f.content) }
+
+type Dir struct {
+    name     string
+    children map[string]Entry
+    parent   *Dir
+}
+
+func NewDir(name string) *Dir {
+    return &Dir{name: name, children: make(map[string]Entry)}
+}
+
+func (d *Dir) Add(entry Entry) {
+    d.children[entry.Name()] = entry
+}
+
+func (d *Dir) Size() int {
+    total := 0
+    for _, child := range d.children {
+        total += child.Size()
+    }
+    return total
+}
+
+func (d *Dir) Search(pattern string) []Entry {
+    var results []Entry
+    for _, child := range d.children {
+        if strings.Contains(child.Name(), pattern) {
+            results = append(results, child)
+        }
+        if dir, ok := child.(*Dir); ok {
+            results = append(results, dir.Search(pattern)...)
+        }
+    }
+    return results
+}`}
+  cpp={`class FileSystemEntry {
+protected:
+    std::string name_;
+    FileSystemEntry* parent_ = nullptr;
+public:
+    FileSystemEntry(std::string name) : name_(std::move(name)) {}
+    virtual ~FileSystemEntry() = default;
+    virtual int size() const = 0;
+    const std::string& name() const { return name_; }
+};
+
+class File : public FileSystemEntry {
+    std::string content_;
+public:
+    File(std::string name, std::string content = "")
+        : FileSystemEntry(std::move(name)),
+          content_(std::move(content)) {}
+    int size() const override { return content_.size(); }
+};
+
+class Directory : public FileSystemEntry {
+    std::map<std::string,
+        std::unique_ptr<FileSystemEntry>> children_;
+public:
+    Directory(std::string name)
+        : FileSystemEntry(std::move(name)) {}
+
+    void add(std::unique_ptr<FileSystemEntry> entry) {
+        entry->parent_ = this;
+        children_[entry->name()] = std::move(entry);
+    }
+
+    int size() const override {
+        int total = 0;
+        for (auto& [_, child] : children_)
+            total += child->size();
+        return total;
+    }
+};`}
+/>
+
+---
+
+## 📊 Design Patterns Used
+
+| Pattern | Where | Why |
+|---------|-------|-----|
+| **Composite** | File/Directory | Treat files and directories uniformly |
+| **Iterator** | Directory traversal | Traverse tree structure |
+| **Singleton** | FileSystem root | One root per file system |
+
+---
+
+## 🔗 Related Concepts
+
+- [Structural Patterns](/concepts/lld/structural-patterns) — Composite pattern is key
+- [SOLID Principles](/concepts/lld/solid-principles) — Liskov Substitution for File/Directory
+- [UML Diagrams](/concepts/lld/uml-diagrams) — Composite class diagram
+
+---
+
+## 📝 Quick Quiz
+
+**Q1: You call `size()` on a directory with 3 files and 2 subdirectories. What happens?**
+
+A) Returns the directory's own size  B) Recursively sums sizes of all contained files
+
+**Answer: B** — The Composite pattern means `Directory.size()` recursively calls `size()` on each child, ultimately summing all file sizes in the subtree.

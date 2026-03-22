@@ -1,0 +1,373 @@
+# 🎯 Connection Pool Design
+
+Design an **Object-Oriented Connection Pool** that manages reusable database connections, handles lifecycle (create, validate, destroy), and supports configurable pool sizing.
+
+> **Real-world analogy:** A **car rental company**. Instead of each customer buying a car for one trip (expensive), they rent from a pool of available cars, use them, and return them for others. A connection pool does the same with database connections.
+
+---
+
+## 📋 Requirements
+
+### Functional
+- Pre-create a minimum number of connections
+- Acquire and release connections
+- Auto-scale pool between min and max size
+- Validate connections before handing them out
+- Timeout for acquire operations
+- Cleanup idle connections periodically
+
+---
+
+## 📊 Pool Configuration Parameters
+
+| Parameter | Description | Typical Value |
+|-----------|-------------|---------------|
+| **minSize** | Minimum connections kept alive | 5 |
+| **maxSize** | Maximum connections allowed | 20 |
+| **acquireTimeout** | Max wait time to get a connection | 5 seconds |
+| **idleTimeout** | Close connection after idle period | 10 minutes |
+| **maxLifetime** | Close connection regardless of usage | 30 minutes |
+| **validateOnBorrow** | Test connection before handing out | true |
+
+---
+
+## 💻 Code Example
+
+<CodeBlock
+  title="Connection Pool"
+  python={`import threading
+import time
+from queue import Queue, Empty
+from dataclasses import dataclass, field
+from typing import Any
+
+@dataclass
+class PoolConfig:
+    min_size: int = 5
+    max_size: int = 20
+    acquire_timeout: float = 5.0
+    idle_timeout: float = 600.0  # 10 minutes
+    max_lifetime: float = 1800.0  # 30 minutes
+    validate_on_borrow: bool = True
+
+class Connection:
+    """Simulated database connection."""
+    _id_counter = 0
+
+    def __init__(self, dsn: str):
+        Connection._id_counter += 1
+        self.id = Connection._id_counter
+        self.dsn = dsn
+        self.created_at = time.time()
+        self.last_used = time.time()
+        self._closed = False
+
+    def execute(self, query: str) -> str:
+        if self._closed:
+            raise RuntimeError("Connection is closed")
+        self.last_used = time.time()
+        return f"[Conn-{self.id}] Executed: {query}"
+
+    def is_valid(self) -> bool:
+        if self._closed:
+            return False
+        # Simulate: SELECT 1
+        return True
+
+    def close(self):
+        self._closed = False
+
+    @property
+    def is_expired(self) -> bool:
+        return (time.time() - self.created_at) > 1800
+
+    @property
+    def is_idle_expired(self) -> bool:
+        return (time.time() - self.last_used) > 600
+
+class ConnectionPool:
+    def __init__(self, dsn: str, config: PoolConfig = PoolConfig()):
+        self.dsn = dsn
+        self.config = config
+        self._pool: Queue[Connection] = Queue(maxsize=config.max_size)
+        self._total_connections = 0
+        self._lock = threading.Lock()
+        self._closed = False
+
+        # Pre-fill minimum connections
+        for _ in range(config.min_size):
+            self._add_connection()
+
+    def _create_connection(self) -> Connection:
+        return Connection(self.dsn)
+
+    def _add_connection(self):
+        with self._lock:
+            if self._total_connections >= self.config.max_size:
+                return
+            conn = self._create_connection()
+            self._pool.put(conn)
+            self._total_connections += 1
+
+    def acquire(self) -> Connection:
+        """Get a connection from the pool."""
+        if self._closed:
+            raise RuntimeError("Pool is closed")
+
+        try:
+            conn = self._pool.get(
+                timeout=self.config.acquire_timeout)
+        except Empty:
+            # Try to create a new connection
+            with self._lock:
+                if self._total_connections < self.config.max_size:
+                    conn = self._create_connection()
+                    self._total_connections += 1
+                else:
+                    raise RuntimeError(
+                        "Connection pool exhausted — "
+                        f"max {self.config.max_size} connections")
+
+        # Validate before returning
+        if self.config.validate_on_borrow and not conn.is_valid():
+            with self._lock:
+                self._total_connections -= 1
+            return self.acquire()  # Retry once
+
+        return conn
+
+    def release(self, conn: Connection):
+        """Return a connection to the pool."""
+        if conn.is_expired or not conn.is_valid():
+            conn.close()
+            with self._lock:
+                self._total_connections -= 1
+            # Replenish if below minimum
+            if self._total_connections < self.config.min_size:
+                self._add_connection()
+        else:
+            conn.last_used = time.time()
+            self._pool.put(conn)
+
+    def close(self):
+        """Shut down the pool."""
+        self._closed = True
+        while not self._pool.empty():
+            try:
+                conn = self._pool.get_nowait()
+                conn.close()
+            except Empty:
+                break
+        self._total_connections = 0
+
+    @property
+    def stats(self) -> dict:
+        return {
+            "total": self._total_connections,
+            "available": self._pool.qsize(),
+            "in_use": self._total_connections - self._pool.qsize(),
+        }
+
+# ═══════ CONTEXT MANAGER ═══════
+class PooledConnection:
+    """Use with 'with' statement for auto-release."""
+    def __init__(self, pool: ConnectionPool):
+        self.pool = pool
+        self.conn: Connection | None = None
+
+    def __enter__(self) -> Connection:
+        self.conn = self.pool.acquire()
+        return self.conn
+
+    def __exit__(self, *args):
+        if self.conn:
+            self.pool.release(self.conn)
+
+# Usage
+pool = ConnectionPool("postgresql://localhost/mydb",
+                      PoolConfig(min_size=3, max_size=10))
+
+print(pool.stats)  # total: 3, available: 3, in_use: 0
+
+with PooledConnection(pool) as conn:
+    print(conn.execute("SELECT * FROM users"))
+    print(pool.stats)  # total: 3, available: 2, in_use: 1
+
+print(pool.stats)  # total: 3, available: 3, in_use: 0
+pool.close()`}
+  java={`public class ConnectionPool {
+    private final BlockingQueue<Connection> pool;
+    private final AtomicInteger totalConnections = new AtomicInteger(0);
+    private final PoolConfig config;
+    private final String dsn;
+    private volatile boolean closed = false;
+
+    public ConnectionPool(String dsn, PoolConfig config) {
+        this.dsn = dsn;
+        this.config = config;
+        this.pool = new LinkedBlockingQueue<>(config.maxSize());
+
+        for (int i = 0; i < config.minSize(); i++) {
+            pool.offer(createConnection());
+            totalConnections.incrementAndGet();
+        }
+    }
+
+    public Connection acquire() throws Exception {
+        if (closed) throw new IllegalStateException("Pool closed");
+
+        Connection conn = pool.poll(
+            config.acquireTimeout(), TimeUnit.MILLISECONDS);
+
+        if (conn == null) {
+            if (totalConnections.get() < config.maxSize()) {
+                conn = createConnection();
+                totalConnections.incrementAndGet();
+            } else {
+                throw new RuntimeException("Pool exhausted");
+            }
+        }
+
+        if (config.validateOnBorrow() && !conn.isValid()) {
+            totalConnections.decrementAndGet();
+            return acquire();
+        }
+
+        return conn;
+    }
+
+    public void release(Connection conn) {
+        if (conn.isExpired() || !conn.isValid()) {
+            conn.close();
+            totalConnections.decrementAndGet();
+            replenish();
+        } else {
+            pool.offer(conn);
+        }
+    }
+
+    private void replenish() {
+        while (totalConnections.get() < config.minSize()) {
+            pool.offer(createConnection());
+            totalConnections.incrementAndGet();
+        }
+    }
+}`}
+  go={`type ConnectionPool struct {
+    dsn    string
+    config PoolConfig
+    pool   chan *Connection
+    total  int32
+    closed bool
+    mu     sync.Mutex
+}
+
+func NewPool(dsn string, config PoolConfig) *ConnectionPool {
+    p := &ConnectionPool{
+        dsn:    dsn,
+        config: config,
+        pool:   make(chan *Connection, config.MaxSize),
+    }
+    for i := 0; i < config.MinSize; i++ {
+        p.pool <- newConnection(dsn)
+        atomic.AddInt32(&p.total, 1)
+    }
+    return p
+}
+
+func (p *ConnectionPool) Acquire() (*Connection, error) {
+    select {
+    case conn := <-p.pool:
+        if conn.IsValid() {
+            return conn, nil
+        }
+        atomic.AddInt32(&p.total, -1)
+        return p.Acquire()
+    case <-time.After(p.config.AcquireTimeout):
+        if atomic.LoadInt32(&p.total) < int32(p.config.MaxSize) {
+            conn := newConnection(p.dsn)
+            atomic.AddInt32(&p.total, 1)
+            return conn, nil
+        }
+        return nil, fmt.Errorf("pool exhausted")
+    }
+}
+
+func (p *ConnectionPool) Release(conn *Connection) {
+    if conn.IsExpired() {
+        conn.Close()
+        atomic.AddInt32(&p.total, -1)
+        p.replenish()
+        return
+    }
+    p.pool <- conn
+}`}
+  cpp={`class ConnectionPool {
+    std::queue<std::unique_ptr<Connection>> pool_;
+    std::mutex mu_;
+    std::condition_variable cv_;
+    int totalConns_ = 0;
+    PoolConfig config_;
+    std::string dsn_;
+
+public:
+    ConnectionPool(std::string dsn, PoolConfig config)
+        : dsn_(std::move(dsn)), config_(config) {
+        for (int i = 0; i < config_.minSize; i++) {
+            pool_.push(std::make_unique<Connection>(dsn_));
+            totalConns_++;
+        }
+    }
+
+    std::unique_ptr<Connection> acquire() {
+        std::unique_lock<std::mutex> lock(mu_);
+        if (cv_.wait_for(lock,
+                std::chrono::milliseconds(config_.acquireTimeoutMs),
+                [this] { return !pool_.empty(); })) {
+            auto conn = std::move(pool_.front());
+            pool_.pop();
+            return conn;
+        }
+        if (totalConns_ < config_.maxSize) {
+            totalConns_++;
+            return std::make_unique<Connection>(dsn_);
+        }
+        throw std::runtime_error("Pool exhausted");
+    }
+
+    void release(std::unique_ptr<Connection> conn) {
+        std::lock_guard<std::mutex> lock(mu_);
+        pool_.push(std::move(conn));
+        cv_.notify_one();
+    }
+};`}
+/>
+
+---
+
+## 📊 Design Patterns Used
+
+| Pattern | Where | Why |
+|---------|-------|-----|
+| **Object Pool** | Core pattern | Reuse expensive connections |
+| **Factory** | Connection creation | Encapsulate creation logic |
+| **Singleton** | DataSource/Pool registry | One pool per database |
+| **Proxy** | PooledConnection wrapper | Auto-release on close |
+
+---
+
+## 🔗 Related Concepts
+
+- [Database Design](/concepts/hld/database-design) — Connection pools serve database connections
+- [SOLID Principles](/concepts/lld/solid-principles) — SRP for pool vs connection logic
+- [Rate Limiting](/concepts/hld/rate-limiting) — Pool size limits concurrent DB access
+
+---
+
+## 📝 Quick Quiz
+
+**Q1: Pool has maxSize=10. All 10 connections are in use. A new request arrives. What should happen?**
+
+A) Create an 11th connection  B) Block until a connection is returned, or timeout
+
+**Answer: B** — The pool enforces its max size. The request should block (wait) with a timeout. If no connection is returned within the timeout, throw an exception.

@@ -1,0 +1,236 @@
+# 🎯 What is Load Balancing?
+
+**Load Balancing** is the process of distributing incoming network traffic across multiple servers so that no single server bears too much demand.
+
+> **Real-world analogy:** Think of a **restaurant host** who seats guests across all available tables. Without a host, everyone would crowd at the first table while other tables sit empty. The host ensures every table gets a fair share of diners — that's exactly what a load balancer does for servers.
+
+---
+
+## 🌍 Real-World Example
+
+**Uber** handles millions of ride requests every day. When you open the Uber app, your request doesn't go to a single server. Instead, **load balancers** route your request to one of thousands of backend servers. During surge hours (like New Year's Eve), Uber's load balancers distribute the traffic surge evenly so the app stays responsive for everyone.
+
+---
+
+## 🔍 How Does It Work?
+
+A load balancer sits between clients (users) and servers. When a request arrives:
+
+1. **Client** sends a request (e.g., open a webpage)
+2. **Load Balancer** receives the request
+3. **Load Balancer** picks a server using an algorithm
+4. **Server** processes the request and sends the response back
+5. **Load Balancer** forwards the response to the client
+
+The client never knows which server handled their request — it's all transparent.
+
+---
+
+## 📊 Load Balancing Algorithms
+
+### 1. Round Robin
+Distributes requests **one by one** in circular order.
+
+| Request # | Server |
+|:---------:|:------:|
+| 1 | Server A |
+| 2 | Server B |
+| 3 | Server C |
+| 4 | Server A |
+| 5 | Server B |
+
+**Best for:** Servers with equal capacity, stateless applications.
+
+### 2. Least Connections
+Sends the request to the server with the **fewest active connections**.
+
+**Best for:** When requests have varying processing times (some take 1ms, others take 5s).
+
+### 3. IP Hash
+Uses the client's **IP address** to determine which server handles the request. The same client always goes to the same server.
+
+**Best for:** When you need session persistence (sticky sessions) — e.g., shopping carts.
+
+### 4. Weighted Round Robin
+Like Round Robin, but some servers get **more requests** based on their capacity.
+
+| Server | Weight | Share |
+|--------|:------:|:-----:|
+| Server A (powerful) | 5 | 50% |
+| Server B (medium) | 3 | 30% |
+| Server C (small) | 2 | 20% |
+
+---
+
+## 💻 Code Example: Simple Load Balancer
+
+<CodeBlock
+  title="Load Balancer Implementation"
+  java={`import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
+
+public class LoadBalancer {
+    private final List<String> servers;
+    private final AtomicInteger currentIndex = new AtomicInteger(0);
+
+    public LoadBalancer(List<String> servers) {
+        this.servers = servers;
+    }
+
+    // Round Robin algorithm
+    public String getNextServer() {
+        int index = currentIndex.getAndIncrement() % servers.size();
+        String server = servers.get(index);
+        System.out.println("Routing to: " + server);
+        return server;
+    }
+
+    // Least Connections (simplified)
+    public String getLeastConnServer(Map<String, Integer> connections) {
+        return connections.entrySet().stream()
+            .min(Map.Entry.comparingByValue())
+            .map(Map.Entry::getKey)
+            .orElse(servers.get(0));
+    }
+}`}
+  python={`from itertools import cycle
+from typing import Dict
+
+class LoadBalancer:
+    def __init__(self, servers: list[str]):
+        self.servers = servers
+        self._cycle = cycle(range(len(servers)))
+
+    # Round Robin algorithm
+    def get_next_server(self) -> str:
+        index = next(self._cycle)
+        server = self.servers[index]
+        print(f"Routing to: {server}")
+        return server
+
+    # Least Connections (simplified)
+    def get_least_conn_server(self, connections: Dict[str, int]) -> str:
+        return min(connections, key=connections.get)
+
+# Usage
+lb = LoadBalancer(["server-1", "server-2", "server-3"])
+for _ in range(6):
+    lb.get_next_server()`}
+  go={`package main
+
+import (
+    "fmt"
+    "sync/atomic"
+)
+
+type LoadBalancer struct {
+    servers []string
+    current uint64
+}
+
+func NewLoadBalancer(servers []string) *LoadBalancer {
+    return &LoadBalancer{servers: servers}
+}
+
+// Round Robin algorithm
+func (lb *LoadBalancer) GetNextServer() string {
+    index := atomic.AddUint64(&lb.current, 1) % uint64(len(lb.servers))
+    server := lb.servers[index]
+    fmt.Printf("Routing to: %s\\n", server)
+    return server
+}`}
+  cpp={`#include <vector>
+#include <string>
+#include <atomic>
+#include <iostream>
+
+class LoadBalancer {
+    std::vector<std::string> servers;
+    std::atomic<size_t> currentIndex{0};
+
+public:
+    LoadBalancer(std::vector<std::string> svrs) : servers(std::move(svrs)) {}
+
+    // Round Robin algorithm
+    std::string getNextServer() {
+        size_t index = currentIndex.fetch_add(1) % servers.size();
+        std::cout << "Routing to: " << servers[index] << std::endl;
+        return servers[index];
+    }
+};`}
+  highlightLines={{ java: [9, 10, 11], python: [10, 11, 12] }}
+/>
+
+---
+
+## 📊 Types of Load Balancers
+
+| Type | Layer | What it inspects | Speed | Use Case |
+|------|:-----:|:---:|:---:|-----|
+| **L4 (Transport)** | TCP/UDP | IP + Port | Very fast | Raw TCP traffic, gaming, streaming |
+| **L7 (Application)** | HTTP | URL, headers, cookies | Slower but smarter | Web apps, API routing, content-based routing |
+
+### Layer 4 vs Layer 7
+- **Layer 4** just looks at the envelope (IP addresses and ports). It's fast but can't read what's inside.
+- **Layer 7** opens the envelope and reads the letter (HTTP headers, URLs, cookies). It can make smarter decisions like routing `/api/*` to API servers and `/images/*` to media servers.
+
+---
+
+## ⚖️ Pros & Cons
+
+| Pros ✅ | Cons ❌ |
+|---------|---------|
+| Prevents server overload | Adds network latency (extra hop) |
+| Improves availability | Load balancer itself can fail (single point of failure) |
+| Enables horizontal scaling | Configuration complexity |
+| Health checks remove bad servers | Session management challenges |
+| Can terminate SSL centrally | Cost of hardware/software LB |
+
+---
+
+## 🧩 When to Use / When NOT to Use
+
+**Use load balancing when:**
+- You have multiple servers to distribute traffic
+- You need high availability and fault tolerance
+- Traffic is unpredictable or has spikes
+- You want zero-downtime deployments
+
+**Don't need load balancing when:**
+- You have a single server handling minimal traffic
+- Your application is internally scaled (e.g., single powerful machine)
+- Traffic is predictable and low volume
+
+---
+
+## 🔗 Related Concepts
+
+- [Scalability](/concepts/hld/scalability) — Load balancing enables horizontal scaling
+- [Proxy](/concepts/hld/proxy) — Reverse proxies often include load balancing
+- [CDN](/concepts/hld/cdn) — CDNs use geographic load balancing for edge servers
+- [Rate Limiting](/concepts/hld/rate-limiting) — Often implemented at the load balancer level
+- [Health Checks](/concepts/hld/heartbeat) — Load balancers use health checks to detect unhealthy servers
+
+---
+
+## 📝 Quick Quiz
+
+**Q1: Your web app has 3 servers. Server A is twice as powerful as servers B and C. Which algorithm should you use?**
+
+A) Round Robin
+B) Weighted Round Robin
+C) IP Hash
+
+**Answer: B** — Weighted Round Robin lets you assign higher weights to more powerful servers, sending them proportionally more traffic.
+
+**Q2: Users are complaining that their shopping cart items disappear when they refresh. Your load balancer uses Round Robin. What's likely happening?**
+
+A) The database is losing data
+B) Requests are going to different servers, and cart data is stored in server memory
+C) The load balancer is dropping packets
+
+**Answer: B** — With Round Robin, each request might go to a different server. If session data is stored in server memory (not shared), users lose their cart. Solutions: use IP Hash (sticky sessions) or externalize session state to Redis.
+
+---
+
+*Sources: Nginx Documentation, AWS Elastic Load Balancing docs, Uber Engineering Blog, DDIA by Martin Kleppmann*

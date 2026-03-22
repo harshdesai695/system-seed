@@ -1,0 +1,306 @@
+# 🎯 ATM System Design
+
+Design an **Object-Oriented ATM System** that handles user authentication, balance inquiry, cash withdrawal, deposits, and fund transfers.
+
+> **Real-world analogy:** A bank ATM — insert your card, enter PIN, choose an operation (withdraw, deposit, transfer, balance inquiry), and the machine processes it while communicating with the bank's backend.
+
+---
+
+## 📋 Requirements
+
+### Functional
+- Authenticate users via card number and PIN
+- Check account balance
+- Withdraw cash (validate amount, update balance, dispense bills)
+- Deposit cash
+- Transfer funds between accounts
+- Print transaction receipts
+
+---
+
+## 🔍 Class Design
+
+| Class | Responsibility |
+|-------|---------------|
+| `ATM` | Main controller, manages session flow |
+| `CardReader` | Reads and validates card |
+| `CashDispenser` | Manages physical cash and denominations |
+| `Account` | Bank account with balance and operations |
+| `Transaction` | Records each operation |
+| `Bank` | Authenticates users and manages accounts |
+
+---
+
+## 💻 Code Example
+
+<CodeBlock
+  title="ATM System"
+  python={`from enum import Enum
+from dataclasses import dataclass, field
+from datetime import datetime
+
+class TransactionType(Enum):
+    WITHDRAWAL = "withdrawal"
+    DEPOSIT = "deposit"
+    TRANSFER = "transfer"
+    BALANCE = "balance_inquiry"
+
+@dataclass
+class Transaction:
+    tx_id: str
+    tx_type: TransactionType
+    account_number: str
+    amount: float
+    timestamp: datetime = field(default_factory=datetime.now)
+    success: bool = True
+    details: str = ""
+
+class Account:
+    def __init__(self, account_number: str, pin: str,
+                 holder_name: str, balance: float = 0):
+        self.account_number = account_number
+        self._pin = pin
+        self.holder_name = holder_name
+        self._balance = balance
+        self.transactions: list[Transaction] = []
+
+    def verify_pin(self, pin: str) -> bool:
+        return self._pin == pin
+
+    @property
+    def balance(self) -> float:
+        return self._balance
+
+    def debit(self, amount: float) -> bool:
+        if amount > self._balance:
+            return False
+        self._balance -= amount
+        return True
+
+    def credit(self, amount: float):
+        self._balance += amount
+
+class CashDispenser:
+    def __init__(self):
+        self._denominations = {100: 100, 50: 200, 20: 500, 10: 1000}
+
+    def dispense(self, amount: float) -> dict[int, int] | None:
+        remaining = int(amount)
+        bills = {}
+        for denom in sorted(self._denominations.keys(), reverse=True):
+            if remaining <= 0:
+                break
+            count = min(remaining // denom, self._denominations[denom])
+            if count > 0:
+                bills[denom] = count
+                remaining -= denom * count
+        if remaining > 0:
+            return None  # Cannot dispense exact amount
+        # Update inventory
+        for denom, count in bills.items():
+            self._denominations[denom] -= count
+        return bills
+
+class Bank:
+    def __init__(self):
+        self._accounts: dict[str, Account] = {}
+        self._tx_counter = 0
+
+    def add_account(self, account: Account):
+        self._accounts[account.account_number] = account
+
+    def authenticate(self, account_number: str, pin: str) -> Account | None:
+        account = self._accounts.get(account_number)
+        if account and account.verify_pin(pin):
+            return account
+        return None
+
+    def _next_tx_id(self) -> str:
+        self._tx_counter += 1
+        return f"TX-{self._tx_counter:06d}"
+
+    def withdraw(self, account: Account, amount: float) -> Transaction:
+        tx = Transaction(self._next_tx_id(), TransactionType.WITHDRAWAL,
+                         account.account_number, amount)
+        if account.debit(amount):
+            tx.details = f"Withdrew ${'$'}{amount:.2f}"
+        else:
+            tx.success = False
+            tx.details = "Insufficient funds"
+        account.transactions.append(tx)
+        return tx
+
+    def deposit(self, account: Account, amount: float) -> Transaction:
+        account.credit(amount)
+        tx = Transaction(self._next_tx_id(), TransactionType.DEPOSIT,
+                         account.account_number, amount,
+                         details=f"Deposited ${'$'}{amount:.2f}")
+        account.transactions.append(tx)
+        return tx
+
+    def transfer(self, from_acc: Account, to_number: str,
+                 amount: float) -> Transaction:
+        to_acc = self._accounts.get(to_number)
+        tx = Transaction(self._next_tx_id(), TransactionType.TRANSFER,
+                         from_acc.account_number, amount)
+        if not to_acc:
+            tx.success = False
+            tx.details = "Destination account not found"
+        elif not from_acc.debit(amount):
+            tx.success = False
+            tx.details = "Insufficient funds"
+        else:
+            to_acc.credit(amount)
+            tx.details = f"Transferred ${'$'}{amount:.2f} to {to_number}"
+        from_acc.transactions.append(tx)
+        return tx
+
+class ATM:
+    def __init__(self, atm_id: str, bank: Bank):
+        self.atm_id = atm_id
+        self.bank = bank
+        self.dispenser = CashDispenser()
+        self._current_account: Account | None = None
+
+    def insert_card(self, account_number: str, pin: str) -> str:
+        self._current_account = self.bank.authenticate(
+            account_number, pin)
+        if self._current_account:
+            return f"✅ Welcome, {self._current_account.holder_name}"
+        return "❌ Authentication failed"
+
+    def check_balance(self) -> str:
+        if not self._current_account:
+            return "Please insert card first"
+        return f"Balance: ${'$'}{self._current_account.balance:.2f}"
+
+    def withdraw(self, amount: float) -> str:
+        if not self._current_account:
+            return "Please insert card first"
+        bills = self.dispenser.dispense(amount)
+        if not bills:
+            return "❌ ATM cannot dispense this amount"
+        tx = self.bank.withdraw(self._current_account, amount)
+        if tx.success:
+            bill_str = ", ".join(f"{c}×${'$'}{d}" for d, c in bills.items())
+            return f"✅ {tx.details} ({bill_str})"
+        return f"❌ {tx.details}"
+
+    def eject_card(self) -> str:
+        self._current_account = None
+        return "Card ejected. Thank you!"
+
+# Usage
+bank = Bank()
+bank.add_account(Account("1234567890", "1234", "Alice", 5000.0))
+bank.add_account(Account("0987654321", "5678", "Bob", 3000.0))
+
+atm = ATM("ATM-001", bank)
+print(atm.insert_card("1234567890", "1234"))
+print(atm.check_balance())
+print(atm.withdraw(280))
+print(atm.check_balance())
+print(atm.eject_card())`}
+  java={`public class ATM {
+    private final String atmId;
+    private final Bank bank;
+    private final CashDispenser dispenser;
+    private Account currentAccount;
+
+    public String insertCard(String accountNum, String pin) {
+        currentAccount = bank.authenticate(accountNum, pin);
+        return currentAccount != null
+            ? "Welcome, " + currentAccount.getHolderName()
+            : "Authentication failed";
+    }
+
+    public String withdraw(double amount) {
+        if (currentAccount == null) return "Insert card first";
+        var bills = dispenser.dispense(amount);
+        if (bills == null) return "Cannot dispense amount";
+        var tx = bank.withdraw(currentAccount, amount);
+        return tx.isSuccess() ? tx.getDetails() : tx.getDetails();
+    }
+
+    public String checkBalance() {
+        if (currentAccount == null) return "Insert card first";
+        return String.format("Balance: $%.2f",
+            currentAccount.getBalance());
+    }
+
+    public void ejectCard() { currentAccount = null; }
+}`}
+  go={`type ATM struct {
+    ID        string
+    Bank      *Bank
+    Dispenser *CashDispenser
+    current   *Account
+}
+
+func (atm *ATM) InsertCard(accountNum, pin string) string {
+    atm.current = atm.Bank.Authenticate(accountNum, pin)
+    if atm.current != nil {
+        return "Welcome, " + atm.current.HolderName
+    }
+    return "Authentication failed"
+}
+
+func (atm *ATM) Withdraw(amount float64) string {
+    if atm.current == nil { return "Insert card first" }
+    bills := atm.Dispenser.Dispense(amount)
+    if bills == nil { return "Cannot dispense amount" }
+    tx := atm.Bank.Withdraw(atm.current, amount)
+    return tx.Details
+}
+
+func (atm *ATM) CheckBalance() string {
+    if atm.current == nil { return "Insert card first" }
+    return fmt.Sprintf("Balance: $%.2f", atm.current.Balance)
+}`}
+  cpp={`class ATM {
+    std::string id_;
+    Bank* bank_;
+    CashDispenser dispenser_;
+    Account* current_ = nullptr;
+
+public:
+    ATM(std::string id, Bank* bank)
+        : id_(std::move(id)), bank_(bank) {}
+
+    std::string insertCard(const std::string& num,
+                           const std::string& pin) {
+        current_ = bank_->authenticate(num, pin);
+        return current_
+            ? "Welcome, " + current_->holderName
+            : "Authentication failed";
+    }
+
+    std::string withdraw(double amount) {
+        if (!current_) return "Insert card first";
+        auto bills = dispenser_.dispense(amount);
+        if (!bills) return "Cannot dispense amount";
+        auto tx = bank_->withdraw(current_, amount);
+        return tx.details;
+    }
+
+    void ejectCard() { current_ = nullptr; }
+};`}
+/>
+
+---
+
+## 🔗 Related Concepts
+
+- [Behavioral Patterns](/concepts/lld/behavioral-patterns) — State pattern for ATM session states
+- [Vending Machine](/concepts/lld/vending-machine) — Similar state machine design
+- [SOLID Principles](/concepts/lld/solid-principles) — SRP for each component
+
+---
+
+## 📝 Quick Quiz
+
+**Q1: A user requests $175 but the ATM only has $100 and $50 bills. What should happen?**
+
+A) Dispense $150 and tell user  B) Reject the request — ATM can't give exact change
+
+**Answer: B** — The ATM must dispense the exact amount requested. If it can't make that amount with available denominations, the withdrawal should be rejected.

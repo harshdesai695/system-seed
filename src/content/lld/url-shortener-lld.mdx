@@ -1,0 +1,298 @@
+# 🎯 URL Shortener — Low-Level Design
+
+Design an **OOP URL Shortener** like bit.ly that converts long URLs into short, unique aliases, handles redirection, tracks analytics, and manages link expiration.
+
+> **Real-world analogy:** A **coat check** at a restaurant. You hand in your long coat (long URL), get a numbered ticket (short code), and present the ticket later to retrieve your coat (redirect to original URL).
+
+---
+
+## 📋 Requirements
+
+### Functional
+- Shorten a long URL → generate unique short code
+- Redirect short URL → original long URL
+- Custom aliases (optional)
+- Link expiration (TTL)
+- Click analytics (count, timestamps)
+
+---
+
+## 🔍 Short Code Generation Strategies
+
+| Strategy | Pros | Cons |
+|----------|------|------|
+| **Base62 encoding** (counter) | No collisions, simple | Predictable/sequential |
+| **MD5/SHA hash + truncate** | Uniform distribution | Collisions possible |
+| **Random generation** | Unpredictable | Must check for duplicates |
+| **UUID-based** | Globally unique | Too long (needs truncation) |
+
+---
+
+## 💻 Code Example
+
+<CodeBlock
+  title="URL Shortener"
+  python={`import hashlib
+import string
+import time
+from dataclasses import dataclass, field
+
+BASE62 = string.ascii_letters + string.digits  # a-zA-Z0-9
+
+@dataclass
+class ShortenedURL:
+    short_code: str
+    original_url: str
+    created_at: float = field(default_factory=time.time)
+    expires_at: float | None = None
+    click_count: int = 0
+    custom_alias: bool = False
+
+    @property
+    def is_expired(self) -> bool:
+        if self.expires_at is None:
+            return False
+        return time.time() > self.expires_at
+
+class URLShortener:
+    def __init__(self, domain: str = "short.url"):
+        self.domain = domain
+        self._url_map: dict[str, ShortenedURL] = {}  # code → URL obj
+        self._reverse_map: dict[str, str] = {}        # long → code
+        self._counter = 1000000  # Start for Base62
+
+    def _encode_base62(self, num: int) -> str:
+        if num == 0:
+            return BASE62[0]
+        result = []
+        while num > 0:
+            result.append(BASE62[num % 62])
+            num //= 62
+        return ''.join(reversed(result))
+
+    def _generate_code(self, url: str) -> str:
+        # Strategy 1: Counter-based Base62
+        self._counter += 1
+        return self._encode_base62(self._counter)
+
+    def shorten(self, long_url: str, custom_alias: str | None = None,
+                ttl_seconds: int | None = None) -> str:
+        # Check if already shortened
+        if long_url in self._reverse_map:
+            return f"https://{self.domain}/{self._reverse_map[long_url]}"
+
+        # Use custom alias or generate code
+        code = custom_alias if custom_alias else self._generate_code(long_url)
+
+        if code in self._url_map:
+            raise ValueError(f"Code '{code}' already exists")
+
+        expires = time.time() + ttl_seconds if ttl_seconds else None
+        entry = ShortenedURL(
+            short_code=code,
+            original_url=long_url,
+            expires_at=expires,
+            custom_alias=custom_alias is not None,
+        )
+
+        self._url_map[code] = entry
+        self._reverse_map[long_url] = code
+        return f"https://{self.domain}/{code}"
+
+    def resolve(self, short_code: str) -> str | None:
+        entry = self._url_map.get(short_code)
+        if not entry:
+            return None
+        if entry.is_expired:
+            self._cleanup(short_code)
+            return None
+        entry.click_count += 1
+        return entry.original_url
+
+    def get_analytics(self, short_code: str) -> dict | None:
+        entry = self._url_map.get(short_code)
+        if not entry:
+            return None
+        return {
+            "short_code": entry.short_code,
+            "original_url": entry.original_url,
+            "clicks": entry.click_count,
+            "created_at": entry.created_at,
+            "expired": entry.is_expired,
+        }
+
+    def _cleanup(self, code: str):
+        entry = self._url_map.pop(code, None)
+        if entry:
+            self._reverse_map.pop(entry.original_url, None)
+
+# Usage
+shortener = URLShortener()
+short = shortener.shorten("https://example.com/very/long/path")
+print(short)  # https://short.url/4c92
+
+original = shortener.resolve("4c92")
+print(original)  # https://example.com/very/long/path
+
+# Custom alias
+shortener.shorten("https://mysite.com", custom_alias="mysite")
+print(shortener.get_analytics("mysite"))`}
+  java={`public class URLShortener {
+    private static final String BASE62 =
+        "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    private final Map<String, ShortenedURL> urlMap = new ConcurrentHashMap<>();
+    private final Map<String, String> reverseMap = new ConcurrentHashMap<>();
+    private final AtomicLong counter = new AtomicLong(1000000);
+    private final String domain;
+
+    public URLShortener(String domain) {
+        this.domain = domain;
+    }
+
+    private String encodeBase62(long num) {
+        StringBuilder sb = new StringBuilder();
+        while (num > 0) {
+            sb.append(BASE62.charAt((int)(num % 62)));
+            num /= 62;
+        }
+        return sb.reverse().toString();
+    }
+
+    public String shorten(String longUrl) {
+        if (reverseMap.containsKey(longUrl)) {
+            return domain + "/" + reverseMap.get(longUrl);
+        }
+        String code = encodeBase62(counter.incrementAndGet());
+        var entry = new ShortenedURL(code, longUrl);
+        urlMap.put(code, entry);
+        reverseMap.put(longUrl, code);
+        return domain + "/" + code;
+    }
+
+    public Optional<String> resolve(String code) {
+        var entry = urlMap.get(code);
+        if (entry == null || entry.isExpired()) {
+            return Optional.empty();
+        }
+        entry.incrementClicks();
+        return Optional.of(entry.getOriginalUrl());
+    }
+}`}
+  go={`const base62 = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+
+type URLShortener struct {
+    urlMap     map[string]*ShortenedURL
+    reverseMap map[string]string
+    counter    int64
+    domain     string
+    mu         sync.RWMutex
+}
+
+func (s *URLShortener) encodeBase62(num int64) string {
+    var result []byte
+    for num > 0 {
+        result = append([]byte{base62[num%62]}, result...)
+        num /= 62
+    }
+    return string(result)
+}
+
+func (s *URLShortener) Shorten(longURL string) string {
+    s.mu.Lock()
+    defer s.mu.Unlock()
+
+    if code, exists := s.reverseMap[longURL]; exists {
+        return s.domain + "/" + code
+    }
+
+    s.counter++
+    code := s.encodeBase62(s.counter)
+    s.urlMap[code] = &ShortenedURL{
+        Code: code, OriginalURL: longURL,
+        CreatedAt: time.Now(),
+    }
+    s.reverseMap[longURL] = code
+    return s.domain + "/" + code
+}
+
+func (s *URLShortener) Resolve(code string) (string, bool) {
+    s.mu.RLock()
+    defer s.mu.RUnlock()
+    entry, ok := s.urlMap[code]
+    if !ok || entry.IsExpired() {
+        return "", false
+    }
+    atomic.AddInt64(&entry.Clicks, 1)
+    return entry.OriginalURL, true
+}`}
+  cpp={`class URLShortener {
+    std::unordered_map<std::string, ShortenedURL> urlMap_;
+    std::unordered_map<std::string, std::string> reverseMap_;
+    std::atomic<int64_t> counter_{1000000};
+    std::string domain_;
+    std::shared_mutex mu_;
+
+    std::string encodeBase62(int64_t num) {
+        static const char* chars =
+            "abcdefghijklmnopqrstuvwxyz"
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+        std::string result;
+        while (num > 0) {
+            result = chars[num % 62] + result;
+            num /= 62;
+        }
+        return result;
+    }
+
+public:
+    URLShortener(std::string domain) : domain_(std::move(domain)) {}
+
+    std::string shorten(const std::string& longUrl) {
+        std::unique_lock lock(mu_);
+        if (auto it = reverseMap_.find(longUrl);
+                it != reverseMap_.end()) {
+            return domain_ + "/" + it->second;
+        }
+        auto code = encodeBase62(counter_.fetch_add(1));
+        urlMap_[code] = {code, longUrl};
+        reverseMap_[longUrl] = code;
+        return domain_ + "/" + code;
+    }
+
+    std::optional<std::string> resolve(const std::string& code) {
+        std::shared_lock lock(mu_);
+        auto it = urlMap_.find(code);
+        if (it == urlMap_.end()) return std::nullopt;
+        it->second.clicks++;
+        return it->second.originalUrl;
+    }
+};`}
+/>
+
+---
+
+## 📊 Design Patterns Used
+
+| Pattern | Where | Why |
+|---------|-------|-----|
+| **Strategy** | Code generation | Swap Base62/Hash/Random algorithms |
+| **Factory** | ShortenedURL creation | Encapsulate construction logic |
+| **Singleton** | URLShortener service | One instance manages all URLs |
+
+---
+
+## 🔗 Related Concepts
+
+- [Database Design](/concepts/hld/database-design) — Storage for URL mappings
+- [Caching](/concepts/hld/caching) — Cache popular short codes for fast lookups
+- [Rate Limiting](/concepts/hld/rate-limiting) — Prevent abuse of the shorten API
+
+---
+
+## 📝 Quick Quiz
+
+**Q1: Two users submit the same long URL simultaneously. How do you avoid creating duplicate short codes?**
+
+A) Generate different codes for each  B) Check reverse map first, return existing code
+
+**Answer: B** — Use a reverse map (long URL → short code). If the URL already exists, return the existing short code. This also saves storage.

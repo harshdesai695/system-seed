@@ -1,0 +1,282 @@
+# 🎯 Rate Limiter — Low-Level Design
+
+Design an **Object-Oriented Rate Limiter** that supports multiple algorithms (Token Bucket, Sliding Window, Fixed Window), per-user limits, and is thread-safe.
+
+> **Real-world analogy:** A highway toll booth that only allows N cars per minute. If cars arrive too fast, they must wait in a queue. Different lanes (users) have independent quotas.
+
+---
+
+## 📋 Requirements
+
+### Functional
+- Limit requests per user/IP/API key
+- Support multiple algorithms (Token Bucket, Sliding Window Log, Fixed Window)
+- Configurable rate limits (e.g., 100 req/min, 1000 req/hour)
+- Thread-safe for concurrent requests
+- Return remaining quota and retry-after information
+
+---
+
+## 📊 Algorithm Comparison
+
+| Algorithm | Memory | Accuracy | Burst Handling |
+|-----------|--------|----------|----------------|
+| **Token Bucket** | O(1) per key | Approximate | Allows controlled bursts |
+| **Fixed Window** | O(1) per key | Can allow 2× at boundary | No burst control |
+| **Sliding Window Log** | O(N) per key | Exact | No bursts |
+| **Sliding Window Counter** | O(1) per key | Approximate | Minimal bursts |
+
+---
+
+## 💻 Code Example
+
+<CodeBlock
+  title="Rate Limiter Implementations"
+  python={`import time
+import threading
+from abc import ABC, abstractmethod
+from collections import deque
+from dataclasses import dataclass
+
+@dataclass
+class RateLimitResult:
+    allowed: bool
+    remaining: int
+    retry_after: float = 0.0
+
+# ═══════ INTERFACE ═══════
+class RateLimiter(ABC):
+    @abstractmethod
+    def allow(self, key: str) -> RateLimitResult: ...
+
+# ═══════ TOKEN BUCKET ═══════
+class TokenBucketLimiter(RateLimiter):
+    def __init__(self, capacity: int, refill_rate: float):
+        self.capacity = capacity
+        self.refill_rate = refill_rate  # tokens per second
+        self._buckets: dict[str, dict] = {}
+        self._lock = threading.Lock()
+
+    def allow(self, key: str) -> RateLimitResult:
+        with self._lock:
+            now = time.time()
+            bucket = self._buckets.get(key)
+
+            if not bucket:
+                self._buckets[key] = {
+                    "tokens": self.capacity - 1,
+                    "last_refill": now,
+                }
+                return RateLimitResult(True, self.capacity - 1)
+
+            # Refill tokens
+            elapsed = now - bucket["last_refill"]
+            refill = elapsed * self.refill_rate
+            bucket["tokens"] = min(
+                self.capacity,
+                bucket["tokens"] + refill
+            )
+            bucket["last_refill"] = now
+
+            if bucket["tokens"] >= 1:
+                bucket["tokens"] -= 1
+                return RateLimitResult(
+                    True, int(bucket["tokens"]))
+            else:
+                retry_after = (1 - bucket["tokens"]) / self.refill_rate
+                return RateLimitResult(
+                    False, 0, retry_after)
+
+# ═══════ SLIDING WINDOW LOG ═══════
+class SlidingWindowLogLimiter(RateLimiter):
+    def __init__(self, max_requests: int, window_seconds: float):
+        self.max_requests = max_requests
+        self.window_seconds = window_seconds
+        self._logs: dict[str, deque] = {}
+        self._lock = threading.Lock()
+
+    def allow(self, key: str) -> RateLimitResult:
+        with self._lock:
+            now = time.time()
+            if key not in self._logs:
+                self._logs[key] = deque()
+
+            log = self._logs[key]
+            cutoff = now - self.window_seconds
+
+            # Remove expired entries
+            while log and log[0] < cutoff:
+                log.popleft()
+
+            if len(log) < self.max_requests:
+                log.append(now)
+                return RateLimitResult(
+                    True, self.max_requests - len(log))
+            else:
+                retry_after = log[0] + self.window_seconds - now
+                return RateLimitResult(False, 0, retry_after)
+
+# ═══════ FIXED WINDOW ═══════
+class FixedWindowLimiter(RateLimiter):
+    def __init__(self, max_requests: int, window_seconds: float):
+        self.max_requests = max_requests
+        self.window_seconds = window_seconds
+        self._windows: dict[str, dict] = {}
+        self._lock = threading.Lock()
+
+    def allow(self, key: str) -> RateLimitResult:
+        with self._lock:
+            now = time.time()
+            window_start = int(now / self.window_seconds) * self.window_seconds
+            window_key = f"{key}:{window_start}"
+
+            if window_key not in self._windows:
+                self._windows[window_key] = {"count": 0, "start": window_start}
+
+            w = self._windows[window_key]
+            if w["count"] < self.max_requests:
+                w["count"] += 1
+                return RateLimitResult(
+                    True, self.max_requests - w["count"])
+            else:
+                retry_after = w["start"] + self.window_seconds - now
+                return RateLimitResult(False, 0, retry_after)
+
+# Usage
+limiter = TokenBucketLimiter(capacity=10, refill_rate=2.0)
+
+for i in range(15):
+    result = limiter.allow("user:123")
+    status = "✅" if result.allowed else "❌"
+    print(f"Request {i+1}: {status} "
+          f"(remaining: {result.remaining})")`}
+  java={`public class TokenBucketLimiter implements RateLimiter {
+    private final int capacity;
+    private final double refillRate;
+    private final Map<String, Bucket> buckets
+        = new ConcurrentHashMap<>();
+
+    private static class Bucket {
+        double tokens;
+        long lastRefillNanos;
+    }
+
+    public TokenBucketLimiter(int capacity, double refillRate) {
+        this.capacity = capacity;
+        this.refillRate = refillRate;
+    }
+
+    public synchronized RateLimitResult allow(String key) {
+        long now = System.nanoTime();
+        Bucket bucket = buckets.computeIfAbsent(key, k -> {
+            Bucket b = new Bucket();
+            b.tokens = capacity;
+            b.lastRefillNanos = now;
+            return b;
+        });
+
+        double elapsed = (now - bucket.lastRefillNanos) / 1e9;
+        bucket.tokens = Math.min(capacity,
+            bucket.tokens + elapsed * refillRate);
+        bucket.lastRefillNanos = now;
+
+        if (bucket.tokens >= 1) {
+            bucket.tokens -= 1;
+            return new RateLimitResult(true, (int) bucket.tokens);
+        }
+        return new RateLimitResult(false, 0,
+            (1 - bucket.tokens) / refillRate);
+    }
+}`}
+  go={`type TokenBucketLimiter struct {
+    capacity   float64
+    refillRate float64
+    buckets    map[string]*bucket
+    mu         sync.Mutex
+}
+
+type bucket struct {
+    tokens     float64
+    lastRefill time.Time
+}
+
+func (tbl *TokenBucketLimiter) Allow(key string) RateLimitResult {
+    tbl.mu.Lock()
+    defer tbl.mu.Unlock()
+
+    now := time.Now()
+    b, exists := tbl.buckets[key]
+    if !exists {
+        b = &bucket{tokens: tbl.capacity, lastRefill: now}
+        tbl.buckets[key] = b
+    }
+
+    elapsed := now.Sub(b.lastRefill).Seconds()
+    b.tokens = math.Min(tbl.capacity,
+        b.tokens+elapsed*tbl.refillRate)
+    b.lastRefill = now
+
+    if b.tokens >= 1 {
+        b.tokens--
+        return RateLimitResult{Allowed: true,
+            Remaining: int(b.tokens)}
+    }
+    return RateLimitResult{Allowed: false,
+        RetryAfter: (1 - b.tokens) / tbl.refillRate}
+}`}
+  cpp={`class TokenBucketLimiter : public RateLimiter {
+    struct Bucket {
+        double tokens;
+        std::chrono::steady_clock::time_point lastRefill;
+    };
+
+    int capacity_;
+    double refillRate_;
+    std::unordered_map<std::string, Bucket> buckets_;
+    std::mutex mu_;
+
+public:
+    TokenBucketLimiter(int capacity, double rate)
+        : capacity_(capacity), refillRate_(rate) {}
+
+    RateLimitResult allow(const std::string& key) override {
+        std::lock_guard<std::mutex> lock(mu_);
+        auto now = std::chrono::steady_clock::now();
+
+        auto& bucket = buckets_[key];
+        if (bucket.tokens == 0 && bucket.lastRefill == decltype(now){}) {
+            bucket = {(double)capacity_, now};
+        }
+
+        auto elapsed = std::chrono::duration<double>(
+            now - bucket.lastRefill).count();
+        bucket.tokens = std::min((double)capacity_,
+            bucket.tokens + elapsed * refillRate_);
+        bucket.lastRefill = now;
+
+        if (bucket.tokens >= 1) {
+            bucket.tokens -= 1;
+            return {true, (int)bucket.tokens, 0};
+        }
+        return {false, 0, (1 - bucket.tokens) / refillRate_};
+    }
+};`}
+/>
+
+---
+
+## 🔗 Related Concepts
+
+- [Rate Limiting (HLD)](/concepts/hld/rate-limiting) — System-level rate limiting strategies
+- [API Design](/concepts/hld/api-design) — Rate limit headers in API responses
+- [Behavioral Patterns](/concepts/lld/behavioral-patterns) — Strategy pattern for algorithm selection
+
+---
+
+## 📝 Quick Quiz
+
+**Q1: Token Bucket has capacity=10, refill rate=2/sec. A user sends 12 requests at once. What happens?**
+
+A) All 12 are allowed  B) First 10 allowed, last 2 rejected
+
+**Answer: B** — The bucket can hold at most 10 tokens. After 10 requests drain all tokens, subsequent requests are rejected until tokens refill (at 2/sec, so ~1 second for the next request).

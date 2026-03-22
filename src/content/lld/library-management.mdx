@@ -1,0 +1,322 @@
+# 🎯 Library Management System Design
+
+Design an **Object-Oriented Library Management System** that handles book cataloging, member management, book lending, reservations, and fine calculation.
+
+> **Real-world analogy:** A public library with a front desk where librarians scan books, issue library cards, manage due dates, handle reservations for popular books, and calculate late return fines.
+
+---
+
+## 📋 Requirements
+
+### Functional
+- Add/remove/search books by title, author, ISBN
+- Register members and issue library cards
+- Checkout and return books (with due dates)
+- Reserve books that are currently checked out
+- Calculate fines for overdue returns
+- Track book availability (multiple copies)
+
+---
+
+## 🔍 Class Design
+
+| Class | Responsibility |
+|-------|---------------|
+| `Library` | Facade managing all operations |
+| `Book` | Book information (ISBN, title, author) |
+| `BookCopy` | Physical copy of a book (availability status) |
+| `Member` | Library member with checkout history |
+| `Loan` | Tracks a checkout (book, member, dates, fee) |
+| `Reservation` | Queue for reserved books |
+
+---
+
+## 💻 Code Example
+
+<CodeBlock
+  title="Library Management System"
+  python={`from datetime import datetime, timedelta
+from enum import Enum
+from collections import defaultdict, deque
+
+class BookStatus(Enum):
+    AVAILABLE = "available"
+    CHECKED_OUT = "checked_out"
+    RESERVED = "reserved"
+
+class Book:
+    def __init__(self, isbn: str, title: str, author: str):
+        self.isbn = isbn
+        self.title = title
+        self.author = author
+
+class BookCopy:
+    def __init__(self, copy_id: str, book: Book):
+        self.copy_id = copy_id
+        self.book = book
+        self.status = BookStatus.AVAILABLE
+
+class Member:
+    MAX_BOOKS = 5
+
+    def __init__(self, member_id: str, name: str):
+        self.member_id = member_id
+        self.name = name
+        self.checked_out: list[Loan] = []
+        self.total_fines = 0.0
+
+    @property
+    def can_checkout(self) -> bool:
+        return len(self.checked_out) < self.MAX_BOOKS
+
+class Loan:
+    LOAN_DAYS = 14
+    FINE_PER_DAY = 0.50
+
+    def __init__(self, copy: BookCopy, member: Member):
+        self.copy = copy
+        self.member = member
+        self.checkout_date = datetime.now()
+        self.due_date = self.checkout_date + timedelta(days=self.LOAN_DAYS)
+        self.return_date: datetime | None = None
+
+    def calculate_fine(self) -> float:
+        end = self.return_date or datetime.now()
+        if end <= self.due_date:
+            return 0.0
+        overdue_days = (end - self.due_date).days
+        return overdue_days * self.FINE_PER_DAY
+
+class Library:
+    def __init__(self, name: str):
+        self.name = name
+        self._books: dict[str, Book] = {}           # isbn → Book
+        self._copies: dict[str, BookCopy] = {}       # copy_id → BookCopy
+        self._members: dict[str, Member] = {}        # member_id → Member
+        self._active_loans: dict[str, Loan] = {}     # copy_id → Loan
+        self._reservations: dict[str, deque] = defaultdict(deque)  # isbn → queue
+
+    def add_book(self, isbn: str, title: str, author: str,
+                 num_copies: int = 1):
+        if isbn not in self._books:
+            self._books[isbn] = Book(isbn, title, author)
+        for i in range(num_copies):
+            copy_id = f"{isbn}-C{len(self._copies)+1:03d}"
+            self._copies[copy_id] = BookCopy(copy_id, self._books[isbn])
+
+    def register_member(self, member_id: str, name: str) -> Member:
+        member = Member(member_id, name)
+        self._members[member_id] = member
+        return member
+
+    def search_books(self, query: str) -> list[Book]:
+        query = query.lower()
+        return [b for b in self._books.values()
+                if query in b.title.lower() or query in b.author.lower()]
+
+    def checkout(self, member_id: str, isbn: str) -> Loan | None:
+        member = self._members.get(member_id)
+        if not member or not member.can_checkout:
+            print("Cannot checkout — limit reached or invalid member")
+            return None
+
+        # Find available copy
+        copy = next(
+            (c for c in self._copies.values()
+             if c.book.isbn == isbn and c.status == BookStatus.AVAILABLE),
+            None
+        )
+        if not copy:
+            print(f"No copies available for {isbn}")
+            return None
+
+        copy.status = BookStatus.CHECKED_OUT
+        loan = Loan(copy, member)
+        self._active_loans[copy.copy_id] = loan
+        member.checked_out.append(loan)
+        print(f"✅ {member.name} checked out '{copy.book.title}'")
+        return loan
+
+    def return_book(self, copy_id: str) -> float:
+        loan = self._active_loans.pop(copy_id, None)
+        if not loan:
+            return 0.0
+
+        loan.return_date = datetime.now()
+        fine = loan.calculate_fine()
+        loan.member.total_fines += fine
+        loan.member.checked_out.remove(loan)
+
+        # Check reservations
+        isbn = loan.copy.book.isbn
+        if self._reservations[isbn]:
+            next_member = self._reservations[isbn].popleft()
+            loan.copy.status = BookStatus.RESERVED
+            print(f"📚 Reserved copy available for {next_member}")
+        else:
+            loan.copy.status = BookStatus.AVAILABLE
+
+        return fine
+
+    def reserve_book(self, member_id: str, isbn: str):
+        self._reservations[isbn].append(member_id)
+        print(f"📋 {member_id} added to reservation queue for {isbn}")
+
+# Usage
+lib = Library("City Library")
+lib.add_book("978-0-13-468599-1", "Clean Code", "Robert C. Martin", 3)
+lib.register_member("M001", "Alice")
+lib.checkout("M001", "978-0-13-468599-1")
+lib.search_books("clean")`}
+  java={`public class Library {
+    private final Map<String, Book> books = new HashMap<>();
+    private final Map<String, BookCopy> copies = new HashMap<>();
+    private final Map<String, Member> members = new HashMap<>();
+    private final Map<String, Loan> activeLoans = new HashMap<>();
+    private final Map<String, Queue<String>> reservations
+        = new HashMap<>();
+
+    public void addBook(String isbn, String title, String author,
+                        int numCopies) {
+        books.putIfAbsent(isbn, new Book(isbn, title, author));
+        for (int i = 0; i < numCopies; i++) {
+            String copyId = isbn + "-C" + (copies.size() + 1);
+            copies.put(copyId, new BookCopy(copyId, books.get(isbn)));
+        }
+    }
+
+    public Optional<Loan> checkout(String memberId, String isbn) {
+        Member member = members.get(memberId);
+        if (member == null || !member.canCheckout()) {
+            return Optional.empty();
+        }
+
+        Optional<BookCopy> copy = copies.values().stream()
+            .filter(c -> c.getBook().getIsbn().equals(isbn)
+                && c.getStatus() == BookStatus.AVAILABLE)
+            .findFirst();
+
+        if (copy.isEmpty()) return Optional.empty();
+
+        BookCopy bookCopy = copy.get();
+        bookCopy.setStatus(BookStatus.CHECKED_OUT);
+        Loan loan = new Loan(bookCopy, member);
+        activeLoans.put(bookCopy.getCopyId(), loan);
+        member.addLoan(loan);
+        return Optional.of(loan);
+    }
+
+    public double returnBook(String copyId) {
+        Loan loan = activeLoans.remove(copyId);
+        if (loan == null) return 0.0;
+        loan.markReturned();
+        double fine = loan.calculateFine();
+        loan.getMember().addFine(fine);
+        loan.getCopy().setStatus(BookStatus.AVAILABLE);
+        return fine;
+    }
+}`}
+  go={`type Library struct {
+    books        map[string]*Book
+    copies       map[string]*BookCopy
+    members      map[string]*Member
+    activeLoans  map[string]*Loan
+    reservations map[string][]string
+    mu           sync.Mutex
+}
+
+func (lib *Library) Checkout(memberID, isbn string) (*Loan, error) {
+    lib.mu.Lock()
+    defer lib.mu.Unlock()
+
+    member, ok := lib.members[memberID]
+    if !ok || !member.CanCheckout() {
+        return nil, fmt.Errorf("cannot checkout")
+    }
+
+    for _, copy := range lib.copies {
+        if copy.Book.ISBN == isbn && copy.Status == Available {
+            copy.Status = CheckedOut
+            loan := &Loan{
+                Copy: copy, Member: member,
+                CheckoutDate: time.Now(),
+                DueDate:      time.Now().Add(14 * 24 * time.Hour),
+            }
+            lib.activeLoans[copy.CopyID] = loan
+            member.Loans = append(member.Loans, loan)
+            return loan, nil
+        }
+    }
+    return nil, fmt.Errorf("no copies available")
+}
+
+func (lib *Library) ReturnBook(copyID string) float64 {
+    lib.mu.Lock()
+    defer lib.mu.Unlock()
+
+    loan, ok := lib.activeLoans[copyID]
+    if !ok { return 0 }
+
+    delete(lib.activeLoans, copyID)
+    loan.ReturnDate = time.Now()
+    fine := loan.CalculateFine()
+    loan.Copy.Status = Available
+    return fine
+}`}
+  cpp={`class Library {
+    std::map<std::string, Book> books_;
+    std::map<std::string, BookCopy> copies_;
+    std::map<std::string, Member> members_;
+    std::map<std::string, Loan> activeLoans_;
+    std::mutex mu_;
+
+public:
+    void addBook(const std::string& isbn,
+                 const std::string& title,
+                 const std::string& author, int numCopies) {
+        books_.emplace(isbn, Book{isbn, title, author});
+        for (int i = 0; i < numCopies; i++) {
+            auto copyId = isbn + "-C" +
+                std::to_string(copies_.size() + 1);
+            copies_.emplace(copyId,
+                BookCopy{copyId, &books_[isbn]});
+        }
+    }
+
+    std::optional<Loan> checkout(const std::string& memberId,
+                                 const std::string& isbn) {
+        std::lock_guard<std::mutex> lock(mu_);
+        auto& member = members_.at(memberId);
+        if (!member.canCheckout()) return std::nullopt;
+
+        for (auto& [id, copy] : copies_) {
+            if (copy.book->isbn == isbn
+                && copy.status == BookStatus::AVAILABLE) {
+                copy.status = BookStatus::CHECKED_OUT;
+                Loan loan{copy, member};
+                activeLoans_[id] = loan;
+                return loan;
+            }
+        }
+        return std::nullopt;
+    }
+};`}
+/>
+
+---
+
+## 🔗 Related Concepts
+
+- [SOLID Principles](/concepts/lld/solid-principles) — SRP: separate Book from BookCopy from Loan
+- [Behavioral Patterns](/concepts/lld/behavioral-patterns) — Observer: notify when reserved book returns
+- [UML Diagrams](/concepts/lld/uml-diagrams) — Class diagram for the system
+
+---
+
+## 📝 Quick Quiz
+
+**Q1: A member tries to checkout a 6th book (limit is 5). What should the system do?**
+
+A) Allow it with a warning  B) Reject the request
+
+**Answer: B** — The system enforces `MAX_BOOKS = 5`. The method checks `can_checkout` (count < MAX_BOOKS) and returns None/empty if the limit is reached.
