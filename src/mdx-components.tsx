@@ -1,4 +1,5 @@
 import type { MDXComponents } from "mdx/types";
+import type { ComponentPropsWithoutRef } from "react";
 import { CodeBlock } from "@/components/code-block";
 import {
   ComparisonBarChart,
@@ -19,10 +20,26 @@ import {
   ScalingVisualizer,
   StepDiagram,
 } from "@/components/mdx/interactive-diagram";
+import {
+  LoadBalancerSim,
+  CacheSim,
+  RateLimiterSim,
+  ConsistentHashingSim,
+} from "@/components/mdx/simulators";
+
+function Table(props: ComponentPropsWithoutRef<"table">) {
+  return (
+    <div className="table-wrapper">
+      <table {...props} />
+    </div>
+  );
+}
 
 export function useMDXComponents(components: MDXComponents): MDXComponents {
   return {
     ...components,
+    // Styled HTML elements
+    table: Table,
     // Custom interactive components
     CodeBlock,
     ComparisonBarChart,
@@ -36,5 +53,9 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
     Quiz,
     ScalingVisualizer,
     StepDiagram,
+    LoadBalancerSim,
+    CacheSim,
+    RateLimiterSim,
+    ConsistentHashingSim,
   };
 }

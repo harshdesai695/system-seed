@@ -205,13 +205,19 @@
 
 /* Tables */
 .mdx-content table {
-  @apply my-6 w-full text-sm border-collapse overflow-hidden rounded-lg border border-border;
+  @apply my-6 w-full text-sm border-collapse;
+}
+.mdx-content .table-wrapper {
+  @apply my-6 overflow-x-auto rounded-lg border border-border;
+}
+.mdx-content .table-wrapper table {
+  @apply my-0 border-0;
 }
 .mdx-content thead {
   @apply bg-muted/70;
 }
 .mdx-content thead th {
-  @apply px-4 py-3 text-left font-semibold text-foreground border-b-2 border-border;
+  @apply px-4 py-3 text-left font-semibold text-foreground border-b-2 border-border whitespace-nowrap;
 }
 .mdx-content tbody tr {
   @apply border-b border-border transition-colors hover:bg-muted/30;

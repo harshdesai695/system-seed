@@ -38,17 +38,18 @@ export default function ConceptPage({
   }, [category, slug]);
 
   useEffect(() => {
+    const scrollEl = document.getElementById("main-scroll");
+    if (!scrollEl) return;
+
     const handleScroll = () => {
-      const el = document.getElementById("concept-content");
-      if (!el) return;
-      const scrollTop = window.scrollY || document.documentElement.scrollTop;
-      const docHeight = el.scrollHeight - window.innerHeight;
-      const progress = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
+      const scrollTop = scrollEl.scrollTop;
+      const scrollHeight = scrollEl.scrollHeight - scrollEl.clientHeight;
+      const progress = scrollHeight > 0 ? (scrollTop / scrollHeight) * 100 : 0;
       setReadProgress(Math.min(100, Math.max(0, progress)));
     };
 
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
+    scrollEl.addEventListener("scroll", handleScroll, { passive: true });
+    return () => scrollEl.removeEventListener("scroll", handleScroll);
   }, []);
 
   if (!concept) {
@@ -61,7 +62,7 @@ export default function ConceptPage({
   return (
     <div id="concept-content" className="min-h-full">
       {/* Reading progress bar */}
-      <div className="fixed top-14 left-0 right-0 z-40">
+      <div className="sticky top-0 z-30">
         <Progress value={readProgress} className="h-0.5 rounded-none" />
       </div>
 

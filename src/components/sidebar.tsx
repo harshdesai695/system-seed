@@ -33,7 +33,7 @@ export function Sidebar({ className }: { className?: string }) {
   return (
     <aside
       className={cn(
-        "flex flex-col border-r border-border bg-card/50 backdrop-blur-sm",
+        "flex flex-col h-full overflow-hidden border-r border-border bg-card/50 backdrop-blur-sm",
         className
       )}
     >
