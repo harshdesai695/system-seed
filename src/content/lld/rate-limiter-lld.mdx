@@ -282,3 +282,13 @@ public:
 A) All 12 are allowed  B) First 10 allowed, last 2 rejected
 
 **Answer: B** — The bucket can hold at most 10 tokens. After 10 requests drain all tokens, subsequent requests are rejected until tokens refill (at 2/sec, so ~1 second for the next request).
+
+---
+
+## 🎯 Frequently Asked Interview Questions
+
+1. Implement a rate limiter using the Token Bucket algorithm.
+2. Compare Token Bucket vs Sliding Window Log vs Fixed Window Counter.
+3. How do you implement per-user rate limiting?
+4. How do you make a rate limiter work in a distributed environment?
+5. Design a rate limiter for an API gateway handling 100K requests/sec.

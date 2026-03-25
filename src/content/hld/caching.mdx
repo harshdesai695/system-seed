@@ -94,182 +94,6 @@ Similar to cache-aside, but the **cache** manages loading from the database (not
 
 ---
 
-## �💻 Code Example: Cache-Aside Pattern
-
-<CodeBlock
-  title="Cache-Aside Pattern"
-  java={`import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-
-public class CacheAside<K, V> {
-    private final Map<K, V> cache = new ConcurrentHashMap<>();
-    private final Database<K, V> database;
-    private final int maxSize;
-
-    public CacheAside(Database<K, V> database, int maxSize) {
-        this.database = database;
-        this.maxSize = maxSize;
-    }
-
-    public V get(K key) {
-        // 1. Check cache first
-        V value = cache.get(key);
-        if (value != null) {
-            System.out.println("Cache HIT for key: " + key);
-            return value;  // Fast path!
-        }
-
-        // 2. Cache miss - fetch from database
-        System.out.println("Cache MISS for key: " + key);
-        value = database.read(key);
-
-        // 3. Store in cache for next time
-        if (value != null) {
-            if (cache.size() >= maxSize) {
-                evictOldest();  // Make room
-            }
-            cache.put(key, value);
-        }
-        return value;
-    }
-
-    public void put(K key, V value) {
-        database.write(key, value);  // Write to DB
-        cache.put(key, value);       // Update cache
-    }
-
-    private void evictOldest() {
-        // Simple eviction - remove first entry
-        K firstKey = cache.keySet().iterator().next();
-        cache.remove(firstKey);
-    }
-}`}
-  python={`from collections import OrderedDict
-from typing import Optional, TypeVar, Generic
-
-K = TypeVar('K')
-V = TypeVar('V')
-
-class CacheAside:
-    def __init__(self, database, max_size: int = 100):
-        self.cache: OrderedDict = OrderedDict()
-        self.database = database
-        self.max_size = max_size
-        self.hits = 0
-        self.misses = 0
-
-    def get(self, key) -> Optional[any]:
-        # 1. Check cache first
-        if key in self.cache:
-            self.hits += 1
-            print(f"Cache HIT for key: {key}")
-            self.cache.move_to_end(key)  # Mark as recently used
-            return self.cache[key]
-
-        # 2. Cache miss - fetch from database
-        self.misses += 1
-        print(f"Cache MISS for key: {key}")
-        value = self.database.read(key)
-
-        # 3. Store in cache for next time
-        if value is not None:
-            if len(self.cache) >= self.max_size:
-                self.cache.popitem(last=False)  # Evict LRU
-            self.cache[key] = value
-        return value
-
-    def put(self, key, value):
-        self.database.write(key, value)
-        self.cache[key] = value
-
-    @property
-    def hit_rate(self) -> float:
-        total = self.hits + self.misses
-        return self.hits / total if total > 0 else 0.0`}
-  go={`package cache
-
-import "sync"
-
-type CacheAside struct {
-    cache    map[string]interface{}
-    mu       sync.RWMutex
-    maxSize  int
-    database Database
-}
-
-func NewCacheAside(db Database, maxSize int) *CacheAside {
-    return &CacheAside{
-        cache:    make(map[string]interface{}),
-        maxSize:  maxSize,
-        database: db,
-    }
-}
-
-func (c *CacheAside) Get(key string) (interface{}, bool) {
-    c.mu.RLock()
-    value, found := c.cache[key]
-    c.mu.RUnlock()
-
-    if found {
-        fmt.Println("Cache HIT for key:", key)
-        return value, true // Fast path!
-    }
-
-    // Cache miss - fetch from database
-    fmt.Println("Cache MISS for key:", key)
-    value, err := c.database.Read(key)
-    if err != nil {
-        return nil, false
-    }
-
-    // Store in cache
-    c.mu.Lock()
-    c.cache[key] = value
-    c.mu.Unlock()
-    return value, true
-}`}
-  cpp={`#include <unordered_map>
-#include <string>
-#include <mutex>
-#include <optional>
-#include <iostream>
-
-class CacheAside {
-    std::unordered_map<std::string, std::string> cache;
-    mutable std::mutex mu;
-    size_t maxSize;
-    Database& database;
-
-public:
-    CacheAside(Database& db, size_t maxSize)
-        : database(db), maxSize(maxSize) {}
-
-    std::optional<std::string> get(const std::string& key) {
-        std::lock_guard<std::mutex> lock(mu);
-
-        auto it = cache.find(key);
-        if (it != cache.end()) {
-            std::cout << "Cache HIT: " << key << std::endl;
-            return it->second;  // Fast path!
-        }
-
-        // Cache miss
-        std::cout << "Cache MISS: " << key << std::endl;
-        auto value = database.read(key);
-        if (value) {
-            if (cache.size() >= maxSize) {
-                cache.erase(cache.begin());
-            }
-            cache[key] = *value;
-        }
-        return value;
-    }
-};`}
-  highlightLines={{ java: [16, 17, 18, 19], python: [18, 19, 20, 21] }}
-/>
-
----
-
 ## 📊 Cache Eviction Policies
 
 When the cache is full, which data do we remove?
@@ -338,6 +162,16 @@ When the cache is full, which data do we remove?
   ]}
   explanation="When a popular cache entry expires, hundreds of simultaneous requests may all experience a cache miss and all query the database at once, potentially overwhelming it. Solutions include cache warming, staggered TTLs, or using a lock to allow only one request to rebuild the cache."
 />
+
+---
+
+## 🎯 Frequently Asked Interview Questions
+
+1. How would you handle cache invalidation in a distributed system?
+2. Explain the thundering herd problem and how to prevent it.
+3. What's the difference between cache-aside, read-through, and write-through patterns?
+4. How does Redis achieve high performance? What data structures does it use?
+5. Design a caching strategy for a social media newsfeed with 100M users.
 
 ---
 

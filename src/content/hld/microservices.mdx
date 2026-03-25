@@ -40,120 +40,6 @@ Services register themselves and discover other services dynamically (e.g., Cons
 - **Synchronous**: REST, gRPC (request-response)
 - **Asynchronous**: Message queues like Kafka, RabbitMQ (event-driven)
 
----
-
-## 💻 Code Example: Microservice Structure
-
-<CodeBlock
-  title="Order Service Microservice"
-  java={`// Order Service - handles only order-related logic
-@RestController
-@RequestMapping("/api/orders")
-public class OrderController {
-
-    private final OrderService orderService;
-    private final InventoryClient inventoryClient; // Calls another service
-
-    @PostMapping
-    public ResponseEntity<Order> createOrder(@RequestBody CreateOrderRequest req) {
-        // 1. Check inventory (call Inventory Service via HTTP)
-        boolean inStock = inventoryClient.checkStock(req.getProductId(), req.getQuantity());
-        if (!inStock) {
-            return ResponseEntity.badRequest().build();
-        }
-
-        // 2. Create order (this service's responsibility)
-        Order order = orderService.create(req);
-
-        // 3. Publish event for other services (async)
-        eventBus.publish(new OrderCreatedEvent(order.getId(), order.getUserId()));
-
-        return ResponseEntity.ok(order);
-    }
-}
-
-// Feign client for inter-service communication
-@FeignClient(name = "inventory-service")
-public interface InventoryClient {
-    @GetMapping("/api/inventory/{productId}")
-    boolean checkStock(@PathVariable String productId, @RequestParam int qty);
-}`}
-  python={`# Order Service (Flask microservice)
-from flask import Flask, request, jsonify
-import requests
-
-app = Flask(__name__)
-
-INVENTORY_SERVICE_URL = "http://inventory-service:8081"
-
-@app.route("/api/orders", methods=["POST"])
-def create_order():
-    data = request.json
-
-    # 1. Check inventory (call Inventory Service)
-    resp = requests.get(
-        f"{INVENTORY_SERVICE_URL}/api/inventory/{data['product_id']}",
-        params={"qty": data["quantity"]}
-    )
-    if not resp.json().get("in_stock"):
-        return jsonify({"error": "Out of stock"}), 400
-
-    # 2. Create order (this service's job)
-    order = order_service.create(data)
-
-    # 3. Publish event for other services
-    event_bus.publish("order.created", {"order_id": order["id"]})
-
-    return jsonify(order), 201`}
-  go={`// Order Service (Go microservice)
-func (h *OrderHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
-    var req CreateOrderRequest
-    json.NewDecoder(r.Body).Decode(&req)
-
-    // 1. Check inventory (call Inventory Service)
-    inStock, err := h.inventoryClient.CheckStock(req.ProductID, req.Quantity)
-    if err != nil || !inStock {
-        http.Error(w, "Out of stock", http.StatusBadRequest)
-        return
-    }
-
-    // 2. Create order
-    order, err := h.orderService.Create(req)
-    if err != nil {
-        http.Error(w, err.Error(), http.StatusInternalServerError)
-        return
-    }
-
-    // 3. Publish event
-    h.eventBus.Publish("order.created", OrderCreatedEvent{OrderID: order.ID})
-
-    json.NewEncoder(w).Encode(order)
-}`}
-  cpp={`// Order Service endpoint (conceptual)
-class OrderController {
-    OrderService& orderService;
-    InventoryClient& inventoryClient;
-    EventBus& eventBus;
-
-public:
-    HttpResponse createOrder(const HttpRequest& req) {
-        auto orderReq = parseRequest(req);
-
-        // 1. Check inventory
-        if (!inventoryClient.checkStock(orderReq.productId, orderReq.quantity)) {
-            return HttpResponse(400, "Out of stock");
-        }
-
-        // 2. Create order
-        auto order = orderService.create(orderReq);
-
-        // 3. Publish event
-        eventBus.publish("order.created", OrderCreatedEvent{order.id});
-
-        return HttpResponse(200, order.toJson());
-    }
-};`}
-/>
 
 ---
 
@@ -229,6 +115,16 @@ public:
   ]}
   explanation="Circuit Breaker detects the Shipping Service is down and opens the circuit, returning a fallback response instead of timing out and cascading the failure upward."
 />
+
+---
+
+## 🎯 Frequently Asked Interview Questions
+
+1. How do you handle distributed transactions across microservices?
+2. What is the Saga pattern? Compare choreography vs orchestration.
+3. How do you implement service discovery in a microservices architecture?
+4. When should you NOT use microservices?
+5. How does Netflix handle inter-service communication and fault tolerance?
 
 ---
 

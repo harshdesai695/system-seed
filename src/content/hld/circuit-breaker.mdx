@@ -310,3 +310,20 @@ public:
 A) Retry every request faster  B) Circuit breaker to fail fast and return fallback
 
 **Answer: B** — The circuit breaker trips after a few failures, immediately returning a graceful error or fallback instead of letting hundreds of requests pile up.
+
+
+---
+
+## 🛠️ Try It Yourself
+
+<CircuitBreakerSim />
+
+---
+
+## 🎯 Frequently Asked Interview Questions
+
+1. How do you decide the threshold for opening a circuit breaker?
+2. What is the difference between circuit breaker and retry pattern?
+3. How does Netflix's Hystrix implement the circuit breaker pattern?
+4. How do you test circuit breaker behavior in production?
+5. Design a resilience layer for a payment processing microservice.

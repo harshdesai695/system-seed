@@ -41,116 +41,6 @@ The system continues to **operate** even when network communication between node
   In a distributed system, network partitions **will** happen. You can't avoid P. So the real choice is between **CP** and **AP**.
 </Callout>
 
----
-
-## 💻 Code Example: CP vs AP Behavior
-
-<CodeBlock
-  title="CP vs AP System Behavior"
-  java={`// CP System: Rejects requests during partition
-public class CPSystem {
-    private int value;
-    private boolean partitioned = false;
-
-    public void write(int newValue) {
-        if (partitioned) {
-            throw new UnavailableException("System unavailable during partition");
-        }
-        this.value = newValue;
-        replicateToAllNodes(newValue); // Wait for ALL replicas
-    }
-
-    public int read() {
-        if (partitioned) {
-            throw new UnavailableException("System unavailable during partition");
-        }
-        return value; // Always returns latest value
-    }
-}
-
-// AP System: Always responds, even with stale data
-public class APSystem {
-    private int localValue;
-
-    public void write(int newValue) {
-        this.localValue = newValue;
-        asyncReplicateToOtherNodes(newValue); // Don't wait
-    }
-
-    public int read() {
-        return localValue; // Might be stale during partition
-    }
-}`}
-  python={`# CP System: Consistency over Availability
-class CPSystem:
-    def __init__(self):
-        self.value = None
-        self.partitioned = False
-
-    def write(self, new_value):
-        if self.partitioned:
-            raise Exception("System unavailable during partition")
-        self.value = new_value
-        self._replicate_sync(new_value)  # Wait for ALL replicas
-
-    def read(self):
-        if self.partitioned:
-            raise Exception("System unavailable during partition")
-        return self.value  # Always returns latest value
-
-# AP System: Availability over Consistency
-class APSystem:
-    def __init__(self):
-        self.local_value = None
-
-    def write(self, new_value):
-        self.local_value = new_value
-        self._replicate_async(new_value)  # Don't wait
-
-    def read(self):
-        return self.local_value  # Might be stale during partition`}
-  go={`// CP System: Returns error during partition
-type CPSystem struct {
-    value       int
-    partitioned bool
-    mu          sync.RWMutex
-}
-
-func (s *CPSystem) Write(newValue int) error {
-    s.mu.Lock()
-    defer s.mu.Unlock()
-    if s.partitioned {
-        return errors.New("system unavailable during partition")
-    }
-    s.value = newValue
-    return s.replicateSync(newValue) // Wait for ALL replicas
-}
-
-func (s *CPSystem) Read() (int, error) {
-    s.mu.RLock()
-    defer s.mu.RUnlock()
-    if s.partitioned {
-        return 0, errors.New("system unavailable during partition")
-    }
-    return s.value, nil
-}`}
-  cpp={`// CP System
-class CPSystem {
-    int value;
-    bool partitioned = false;
-public:
-    void write(int newValue) {
-        if (partitioned) throw std::runtime_error("Unavailable during partition");
-        value = newValue;
-        replicateSync(newValue);
-    }
-
-    int read() {
-        if (partitioned) throw std::runtime_error("Unavailable during partition");
-        return value;
-    }
-};`}
-/>
 
 ---
 
@@ -220,6 +110,23 @@ CAP only describes behavior **during a partition**. The **PACELC theorem** exten
   ]}
   explanation="Social media likes are a classic AP use case. Showing a slightly stale count is acceptable; showing an error page is not."
 />
+
+
+---
+
+## 🛠️ Try It Yourself
+
+<CAPTheoremSim />
+
+---
+
+## 🎯 Frequently Asked Interview Questions
+
+1. Is it possible to have all three: Consistency, Availability, and Partition tolerance?
+2. How does DynamoDB achieve high availability while managing consistency?
+3. Explain eventual consistency with a real-world example.
+4. How does Google Spanner claim to be both consistent and available?
+5. Given a banking system, would you choose CP or AP? Why?
 
 ---
 

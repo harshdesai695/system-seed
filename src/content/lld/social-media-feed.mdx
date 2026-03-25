@@ -304,3 +304,13 @@ public:
 A) No problem  B) Writing to 10 million feed caches is extremely slow
 
 **Answer: B** — Fan-out on write means inserting the post ID into 10 million users' feed caches. This is slow and expensive. For celebrities, use fan-out on read (pull model) instead — a hybrid approach.
+
+---
+
+## 🎯 Frequently Asked Interview Questions
+
+1. Design a social media news feed like Twitter/Instagram.
+2. Compare fan-out-on-write vs fan-out-on-read strategies.
+3. How do you rank posts in a user's feed?
+4. How does Twitter handle the celebrity problem (users with millions of followers)?
+5. How do you handle real-time feed updates when someone you follow posts?

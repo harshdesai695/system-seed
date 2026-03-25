@@ -65,121 +65,6 @@ A high-performance RPC framework using Protocol Buffers for serialization.
 | **Caching** | Easy (HTTP caching) | Complex | Complex |
 | **Best For** | Public APIs, CRUD | Mobile apps, complex queries | Internal services, streaming |
 
----
-
-## 💻 Code Example: REST vs GraphQL vs gRPC
-
-<CodeBlock
-  title="API Design Comparison"
-  java={`// REST Controller (Spring Boot)
-@RestController
-@RequestMapping("/api/users")
-public class UserController {
-
-    @GetMapping("/{id}")
-    public User getUser(@PathVariable Long id) {
-        return userService.findById(id);
-    }
-
-    @PostMapping
-    public User createUser(@RequestBody CreateUserRequest req) {
-        return userService.create(req.getName(), req.getEmail());
-    }
-
-    @PutMapping("/{id}")
-    public User updateUser(@PathVariable Long id, @RequestBody UpdateUserRequest req) {
-        return userService.update(id, req);
-    }
-
-    @DeleteMapping("/{id}")
-    public void deleteUser(@PathVariable Long id) {
-        userService.delete(id);
-    }
-}`}
-  python={`# REST API (FastAPI)
-from fastapi import FastAPI
-from pydantic import BaseModel
-
-app = FastAPI()
-
-class User(BaseModel):
-    name: str
-    email: str
-
-@app.get("/api/users/{user_id}")
-async def get_user(user_id: int):
-    return user_service.find_by_id(user_id)
-
-@app.post("/api/users")
-async def create_user(user: User):
-    return user_service.create(user.name, user.email)
-
-@app.put("/api/users/{user_id}")
-async def update_user(user_id: int, user: User):
-    return user_service.update(user_id, user)
-
-@app.delete("/api/users/{user_id}")
-async def delete_user(user_id: int):
-    return user_service.delete(user_id)
-
-# GraphQL Query Example
-"""
-query {
-  user(id: 123) {
-    name
-    email
-    posts {
-      title
-      createdAt
-    }
-  }
-}
-"""`}
-  go={`// REST API (Go net/http)
-func (h *UserHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-    switch r.Method {
-    case http.MethodGet:
-        id := extractID(r)
-        user, err := h.service.FindByID(id)
-        if err != nil {
-            http.Error(w, "Not found", 404)
-            return
-        }
-        json.NewEncoder(w).Encode(user)
-
-    case http.MethodPost:
-        var req CreateUserRequest
-        json.NewDecoder(r.Body).Decode(&req)
-        user := h.service.Create(req.Name, req.Email)
-        w.WriteHeader(http.StatusCreated)
-        json.NewEncoder(w).Encode(user)
-
-    case http.MethodDelete:
-        id := extractID(r)
-        h.service.Delete(id)
-        w.WriteHeader(http.StatusNoContent)
-    }
-}`}
-  cpp={`// REST endpoint (conceptual)
-class UserController {
-public:
-    HttpResponse handleRequest(const HttpRequest& req) {
-        if (req.method == "GET") {
-            auto user = userService.findById(req.pathParam("id"));
-            return HttpResponse(200, user.toJson());
-        }
-        if (req.method == "POST") {
-            auto user = userService.create(req.body());
-            return HttpResponse(201, user.toJson());
-        }
-        if (req.method == "DELETE") {
-            userService.remove(req.pathParam("id"));
-            return HttpResponse(204);
-        }
-        return HttpResponse(405, "Method not allowed");
-    }
-};`}
-/>
 
 ---
 
@@ -217,6 +102,16 @@ public:
 A) gRPC  B) GraphQL  C) WebSockets
 
 **Answer: B** — GraphQL lets the client request all needed data in a single query.
+
+---
+
+## 🎯 Frequently Asked Interview Questions
+
+1. How do you design an API that is backward compatible?
+2. What are the best practices for API versioning?
+3. How do you implement pagination for APIs returning large datasets?
+4. Compare REST vs GraphQL for a mobile application with limited bandwidth.
+5. How does Stripe's API design achieve developer-friendliness?
 
 ---
 

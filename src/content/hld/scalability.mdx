@@ -88,80 +88,6 @@ Adding **more servers** to share the workload.
   ]}
 />
 
----
-
-## 💻 Code Example: Simple Load Distribution
-
-Here's a simplified example of how you might distribute work across multiple workers (horizontal scaling concept):
-
-<CodeBlock
-  title="Horizontal Scaling - Work Distribution"
-  java={`import java.util.List;
-import java.util.ArrayList;
-
-public class HorizontalScaler {
-    private List<Worker> workers = new ArrayList<>();
-
-    public void addWorker(Worker worker) {
-        workers.add(worker);
-        System.out.println("Added worker. Total workers: " + workers.size());
-    }
-
-    public void distributeWork(List<Task> tasks) {
-        for (int i = 0; i < tasks.size(); i++) {
-            // Round-robin distribution
-            Worker worker = workers.get(i % workers.size());
-            worker.process(tasks.get(i));
-        }
-    }
-}`}
-  python={`class HorizontalScaler:
-    def __init__(self):
-        self.workers = []
-
-    def add_worker(self, worker):
-        self.workers.append(worker)
-        print(f"Added worker. Total workers: {len(self.workers)}")
-
-    def distribute_work(self, tasks):
-        for i, task in enumerate(tasks):
-            # Round-robin distribution
-            worker = self.workers[i % len(self.workers)]
-            worker.process(task)`}
-  go={`type HorizontalScaler struct {
-    workers []Worker
-}
-
-func (s *HorizontalScaler) AddWorker(w Worker) {
-    s.workers = append(s.workers, w)
-    fmt.Printf("Added worker. Total workers: %d\\n", len(s.workers))
-}
-
-func (s *HorizontalScaler) DistributeWork(tasks []Task) {
-    for i, task := range tasks {
-        // Round-robin distribution
-        worker := s.workers[i % len(s.workers)]
-        worker.Process(task)
-    }
-}`}
-  cpp={`class HorizontalScaler {
-    std::vector<Worker*> workers;
-
-public:
-    void addWorker(Worker* worker) {
-        workers.push_back(worker);
-        std::cout << "Added worker. Total: " << workers.size() << std::endl;
-    }
-
-    void distributeWork(const std::vector<Task>& tasks) {
-        for (size_t i = 0; i < tasks.size(); i++) {
-            // Round-robin distribution
-            Worker* worker = workers[i % workers.size()];
-            worker->process(tasks[i]);
-        }
-    }
-};`}
-/>
 
 ---
 
@@ -224,6 +150,16 @@ public:
   ]}
   explanation="Horizontal scaling allows Netflix to dynamically add servers during peak demand and remove them when traffic normalizes, making it cost-effective and fault-tolerant."
 />
+
+---
+
+## 🎯 Frequently Asked Interview Questions
+
+1. How would you design a system that scales from 1,000 to 10 million users?
+2. What are the tradeoffs between vertical and horizontal scaling?
+3. When would you choose vertical scaling over horizontal scaling?
+4. How does Netflix handle traffic spikes during new show releases?
+5. Explain the concept of auto-scaling. How do cloud providers implement it?
 
 ---
 

@@ -56,82 +56,6 @@ NoSQL databases provide flexible schemas and are designed for specific data mode
 | **Data Structure** | Tabular (rows/columns) | Documents, key-value, graphs |
 | **Best for** | Complex queries, relationships | High throughput, flexible data |
 
----
-
-## 💻 Code Example: CRUD Operations
-
-<CodeBlock
-  title="SQL vs NoSQL CRUD"
-  java={`// SQL (JDBC)
-public class SqlExample {
-    public void createUser(Connection conn, String name, String email) throws SQLException {
-        String sql = "INSERT INTO users (name, email) VALUES (?, ?)";
-        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setString(1, name);
-            stmt.setString(2, email);
-            stmt.executeUpdate();
-        }
-    }
-
-    public User findUser(Connection conn, int id) throws SQLException {
-        String sql = "SELECT * FROM users WHERE id = ?";
-        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setInt(1, id);
-            ResultSet rs = stmt.executeQuery();
-            if (rs.next()) {
-                return new User(rs.getInt("id"), rs.getString("name"), rs.getString("email"));
-            }
-            return null;
-        }
-    }
-}`}
-  python={`# SQL (SQLite)
-import sqlite3
-
-def create_user(conn, name: str, email: str):
-    cursor = conn.cursor()
-    cursor.execute("INSERT INTO users (name, email) VALUES (?, ?)", (name, email))
-    conn.commit()
-
-def find_user(conn, user_id: int):
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM users WHERE id = ?", (user_id,))
-    return cursor.fetchone()
-
-# NoSQL (MongoDB-style)
-from pymongo import MongoClient
-
-client = MongoClient("mongodb://localhost:27017")
-db = client["myapp"]
-
-# Flexible schema - each document can have different fields
-db.users.insert_one({"name": "Alice", "email": "alice@example.com", "age": 30})
-db.users.insert_one({"name": "Bob", "email": "bob@example.com", "hobbies": ["chess"]})`}
-  go={`// SQL (database/sql)
-func createUser(db *sql.DB, name, email string) error {
-    _, err := db.Exec("INSERT INTO users (name, email) VALUES (?, ?)", name, email)
-    return err
-}
-
-func findUser(db *sql.DB, id int) (*User, error) {
-    row := db.QueryRow("SELECT id, name, email FROM users WHERE id = ?", id)
-    var u User
-    err := row.Scan(&u.ID, &u.Name, &u.Email)
-    return &u, err
-}`}
-  cpp={`// SQL example (conceptual)
-class UserRepository {
-public:
-    void createUser(Database& db, const std::string& name, const std::string& email) {
-        db.execute("INSERT INTO users (name, email) VALUES (?, ?)", name, email);
-    }
-
-    User findUser(Database& db, int id) {
-        auto result = db.query("SELECT * FROM users WHERE id = ?", id);
-        return User{result["id"], result["name"], result["email"]};
-    }
-};`}
-/>
 
 ---
 
@@ -189,6 +113,16 @@ public:
   ]}
   explanation="Banking requires ACID (especially Atomicity) to ensure money isn't lost during transfers."
 />
+
+---
+
+## 🎯 Frequently Asked Interview Questions
+
+1. When would you choose NoSQL over SQL? Give specific examples.
+2. How do you decide between MongoDB, Cassandra, and DynamoDB?
+3. What is database normalization vs denormalization? When do you denormalize?
+4. How would you design a schema for a multi-tenant SaaS application?
+5. Explain ACID properties. Which databases sacrifice some for performance?
 
 ---
 

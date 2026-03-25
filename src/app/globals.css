@@ -8,9 +8,9 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
+  --font-sans: var(--font-inter);
+  --font-mono: var(--font-jetbrains);
+  --font-heading: var(--font-jakarta);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -124,6 +124,9 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
   html {
     @apply font-sans;
@@ -136,26 +139,34 @@
    ═══════════════════════════════════════════════ */
 
 .mdx-content {
-  @apply text-foreground leading-relaxed;
+  @apply text-foreground;
+  font-size: 1.0625rem;
+  line-height: 1.8;
+  letter-spacing: -0.01em;
 }
 
 /* Headings */
 .mdx-content h1 {
-  @apply text-3xl font-bold mt-10 mb-4 text-foreground;
+  font-family: var(--font-jakarta), var(--font-inter), sans-serif;
+  @apply text-3xl font-extrabold mt-10 mb-4 text-foreground tracking-tight;
 }
 .mdx-content h2 {
-  @apply text-2xl font-bold mt-12 mb-4 pb-2 border-b border-border text-foreground scroll-mt-20;
+  font-family: var(--font-jakarta), var(--font-inter), sans-serif;
+  @apply text-2xl font-bold mt-12 mb-4 pb-2 border-b border-border text-foreground scroll-mt-20 tracking-tight;
 }
 .mdx-content h3 {
+  font-family: var(--font-jakarta), var(--font-inter), sans-serif;
   @apply text-xl font-semibold mt-8 mb-3 text-foreground scroll-mt-20;
 }
 .mdx-content h4 {
+  font-family: var(--font-jakarta), var(--font-inter), sans-serif;
   @apply text-lg font-semibold mt-6 mb-2 text-foreground;
 }
 
 /* Paragraphs & text */
 .mdx-content p {
-  @apply my-4 leading-7 text-foreground/90;
+  @apply my-4 text-foreground/90;
+  line-height: 1.8;
 }
 .mdx-content strong {
   @apply font-semibold text-foreground;
@@ -174,7 +185,8 @@
   @apply my-4 ml-6 space-y-2 list-decimal;
 }
 .mdx-content li {
-  @apply leading-7 text-foreground/90;
+  @apply text-foreground/90;
+  line-height: 1.8;
 }
 .mdx-content li::marker {
   @apply text-primary/60;

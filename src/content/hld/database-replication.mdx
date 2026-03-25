@@ -49,113 +49,6 @@ Both servers can handle reads AND writes:
 | **Asynchronous** | Master doesn't wait; replicas sync later | Eventual | Fast |
 | **Semi-synchronous** | Master waits for at least one replica | Good balance | Medium |
 
----
-
-## 💻 Code Example: Read-Write Splitting
-
-<CodeBlock
-  title="Read-Write Splitting"
-  java={`public class ReplicatedDatabase {
-    private final Connection master;        // For writes
-    private final List<Connection> replicas; // For reads
-    private int roundRobinIndex = 0;
-
-    public ReplicatedDatabase(Connection master, List<Connection> replicas) {
-        this.master = master;
-        this.replicas = replicas;
-    }
-
-    // Writes ALWAYS go to master
-    public void write(String sql, Object... params) throws SQLException {
-        try (PreparedStatement stmt = master.prepareStatement(sql)) {
-            for (int i = 0; i < params.length; i++) {
-                stmt.setObject(i + 1, params[i]);
-            }
-            stmt.executeUpdate();
-            System.out.println("Write executed on MASTER");
-        }
-    }
-
-    // Reads go to replicas (round-robin)
-    public ResultSet read(String sql, Object... params) throws SQLException {
-        Connection replica = getNextReplica();
-        PreparedStatement stmt = replica.prepareStatement(sql);
-        for (int i = 0; i < params.length; i++) {
-            stmt.setObject(i + 1, params[i]);
-        }
-        System.out.println("Read executed on REPLICA");
-        return stmt.executeQuery();
-    }
-
-    private Connection getNextReplica() {
-        Connection replica = replicas.get(roundRobinIndex % replicas.size());
-        roundRobinIndex++;
-        return replica;
-    }
-}`}
-  python={`class ReplicatedDatabase:
-    def __init__(self, master, replicas: list):
-        self.master = master        # For writes
-        self.replicas = replicas    # For reads
-        self._index = 0
-
-    def write(self, sql: str, *params):
-        """Writes ALWAYS go to master"""
-        cursor = self.master.cursor()
-        cursor.execute(sql, params)
-        self.master.commit()
-        print("Write executed on MASTER")
-
-    def read(self, sql: str, *params):
-        """Reads go to replicas (round-robin)"""
-        replica = self._get_next_replica()
-        cursor = replica.cursor()
-        cursor.execute(sql, params)
-        print("Read executed on REPLICA")
-        return cursor.fetchall()
-
-    def _get_next_replica(self):
-        replica = self.replicas[self._index % len(self.replicas)]
-        self._index += 1
-        return replica`}
-  go={`type ReplicatedDB struct {
-    master   *sql.DB
-    replicas []*sql.DB
-    index    uint64
-}
-
-// Writes go to master
-func (r *ReplicatedDB) Write(query string, args ...interface{}) error {
-    _, err := r.master.Exec(query, args...)
-    fmt.Println("Write executed on MASTER")
-    return err
-}
-
-// Reads go to replicas (round-robin)
-func (r *ReplicatedDB) Read(query string, args ...interface{}) (*sql.Rows, error) {
-    idx := atomic.AddUint64(&r.index, 1) % uint64(len(r.replicas))
-    fmt.Println("Read executed on REPLICA")
-    return r.replicas[idx].Query(query, args...)
-}`}
-  cpp={`class ReplicatedDB {
-    Database* master;
-    std::vector<Database*> replicas;
-    size_t index = 0;
-
-public:
-    void write(const std::string& sql) {
-        master->execute(sql);
-        std::cout << "Write executed on MASTER" << std::endl;
-    }
-
-    ResultSet read(const std::string& sql) {
-        auto* replica = replicas[index++ % replicas.size()];
-        std::cout << "Read executed on REPLICA" << std::endl;
-        return replica->query(sql);
-    }
-};`}
-  highlightLines={{ java: [13, 14], python: [8, 9] }}
-/>
 
 ---
 
@@ -206,6 +99,16 @@ public:
   ]}
   explanation="Asynchronous replication means replicas might be slightly behind. Solutions: read-after-write consistency (read your own writes from master) or synchronous replication."
 />
+
+---
+
+## 🎯 Frequently Asked Interview Questions
+
+1. How do you handle replication lag in a master-slave setup?
+2. What's the difference between synchronous and asynchronous replication?
+3. How does multi-master replication handle write conflicts?
+4. Design a database replication strategy for a globally distributed app.
+5. What is the split-brain problem in replication and how do you resolve it?
 
 ---
 

@@ -53,158 +53,6 @@
 | Use case | Task distribution | Event broadcasting |
 | Example | Processing orders | Notifying multiple services |
 
----
-
-## 💻 Code Example: Producer & Consumer
-
-<CodeBlock
-  title="Message Queue Pattern"
-  java={`// Simple in-memory message queue
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
-
-public class MessageQueue<T> {
-    private final BlockingQueue<T> queue = new LinkedBlockingQueue<>();
-
-    // Producer: Add message to queue
-    public void publish(T message) {
-        queue.offer(message);
-        System.out.println("Published: " + message);
-    }
-
-    // Consumer: Take message from queue (blocks until available)
-    public T consume() throws InterruptedException {
-        T message = queue.take();
-        System.out.println("Consumed: " + message);
-        return message;
-    }
-
-    public int size() { return queue.size(); }
-}
-
-// Usage with producer and consumer threads
-MessageQueue<String> queue = new MessageQueue<>();
-
-// Producer thread
-new Thread(() -> {
-    queue.publish("Order #1001");
-    queue.publish("Order #1002");
-}).start();
-
-// Consumer thread
-new Thread(() -> {
-    while (true) {
-        String order = queue.consume();
-        processOrder(order);
-    }
-}).start();`}
-  python={`import queue
-import threading
-import time
-
-class MessageQueue:
-    def __init__(self):
-        self._queue = queue.Queue()
-
-    def publish(self, message: str):
-        self._queue.put(message)
-        print(f"Published: {message}")
-
-    def consume(self) -> str:
-        message = self._queue.get()  # Blocks until available
-        print(f"Consumed: {message}")
-        return message
-
-    @property
-    def size(self) -> int:
-        return self._queue.qsize()
-
-# Usage
-mq = MessageQueue()
-
-# Producer
-def producer():
-    for i in range(5):
-        mq.publish(f"Order #{1001 + i}")
-        time.sleep(0.1)
-
-# Consumer
-def consumer():
-    while True:
-        order = mq.consume()
-        print(f"Processing: {order}")
-        time.sleep(0.5)  # Simulate work
-
-threading.Thread(target=producer, daemon=True).start()
-threading.Thread(target=consumer, daemon=True).start()`}
-  go={`type MessageQueue struct {
-    messages chan string
-}
-
-func NewMessageQueue(bufferSize int) *MessageQueue {
-    return &MessageQueue{messages: make(chan string, bufferSize)}
-}
-
-// Producer
-func (mq *MessageQueue) Publish(message string) {
-    mq.messages <- message
-    fmt.Printf("Published: %s\\n", message)
-}
-
-// Consumer
-func (mq *MessageQueue) Consume() string {
-    msg := <-mq.messages // Blocks until available
-    fmt.Printf("Consumed: %s\\n", msg)
-    return msg
-}
-
-// Usage
-func main() {
-    mq := NewMessageQueue(100)
-
-    // Producer goroutine
-    go func() {
-        for i := 0; i < 5; i++ {
-            mq.Publish(fmt.Sprintf("Order #%d", 1001+i))
-        }
-    }()
-
-    // Consumer goroutine
-    go func() {
-        for {
-            order := mq.Consume()
-            fmt.Printf("Processing: %s\\n", order)
-        }
-    }()
-}`}
-  cpp={`#include <queue>
-#include <mutex>
-#include <condition_variable>
-#include <string>
-
-class MessageQueue {
-    std::queue<std::string> queue;
-    std::mutex mu;
-    std::condition_variable cv;
-
-public:
-    void publish(const std::string& message) {
-        std::lock_guard<std::mutex> lock(mu);
-        queue.push(message);
-        cv.notify_one();
-        std::cout << "Published: " << message << std::endl;
-    }
-
-    std::string consume() {
-        std::unique_lock<std::mutex> lock(mu);
-        cv.wait(lock, [this] { return !queue.empty(); });
-        std::string msg = queue.front();
-        queue.pop();
-        std::cout << "Consumed: " << msg << std::endl;
-        return msg;
-    }
-};`}
-/>
 
 ---
 
@@ -268,6 +116,23 @@ public:
   ]}
   explanation="Queues distribute messages, topics broadcast them."
 />
+
+
+---
+
+## 🛠️ Try It Yourself
+
+<MessageQueueSim />
+
+---
+
+## 🎯 Frequently Asked Interview Questions
+
+1. How do you guarantee exactly-once message delivery?
+2. Compare Kafka vs RabbitMQ. When would you choose each?
+3. How do you handle poison messages (messages that repeatedly fail processing)?
+4. Design an event-driven order processing system using message queues.
+5. What is consumer lag in Kafka and how do you monitor and fix it?
 
 ---
 

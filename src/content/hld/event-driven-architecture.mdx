@@ -51,161 +51,6 @@ Separate write operations (commands) from read operations (queries) using differ
 | **Event Sourcing** | Loose | High | High | Event-based |
 | **CQRS + Events** | Loose | Very High | Very High | Eventual |
 
----
-
-## 💻 Code Example: Event System
-
-<CodeBlock
-  title="Event-Driven System"
-  python={`from typing import Callable
-from dataclasses import dataclass, field
-from datetime import datetime
-from collections import defaultdict
-
-@dataclass
-class Event:
-    type: str
-    data: dict
-    timestamp: datetime = field(default_factory=datetime.utcnow)
-
-class EventBus:
-    def __init__(self):
-        self._handlers: dict[str, list[Callable]] = defaultdict(list)
-        self._event_store: list[Event] = []
-
-    def subscribe(self, event_type: str, handler: Callable):
-        self._handlers[event_type].append(handler)
-
-    def publish(self, event: Event):
-        self._event_store.append(event)  # Event sourcing
-        for handler in self._handlers.get(event.type, []):
-            handler(event)
-
-    def replay(self):
-        for event in self._event_store:
-            for handler in self._handlers.get(event.type, []):
-                handler(event)
-
-# --- Services subscribe to events ---
-bus = EventBus()
-
-def send_confirmation(event: Event):
-    print(f"📧 Confirmation sent to {event.data['email']}")
-
-def update_inventory(event: Event):
-    print(f"📦 Inventory reduced for {event.data['product']}")
-
-def process_payment(event: Event):
-    print(f"💳 Charged ${'$'}{event.data['amount']}")
-
-bus.subscribe("order.placed", send_confirmation)
-bus.subscribe("order.placed", update_inventory)
-bus.subscribe("order.placed", process_payment)
-
-# One event triggers all three services
-bus.publish(Event("order.placed", {
-    "email": "user@example.com",
-    "product": "Widget",
-    "amount": 29.99
-}))`}
-  java={`import java.util.*;
-import java.util.concurrent.*;
-import java.util.function.Consumer;
-
-public class EventBus {
-    private final Map<String, List<Consumer<Event>>> handlers
-        = new ConcurrentHashMap<>();
-    private final List<Event> eventStore
-        = new CopyOnWriteArrayList<>();
-
-    public void subscribe(String eventType,
-                          Consumer<Event> handler) {
-        handlers.computeIfAbsent(eventType,
-            k -> new CopyOnWriteArrayList<>()).add(handler);
-    }
-
-    public void publish(Event event) {
-        eventStore.add(event);
-        List<Consumer<Event>> list = handlers.get(event.type());
-        if (list != null) {
-            list.forEach(h -> h.accept(event));
-        }
-    }
-
-    public record Event(String type, Map<String, Object> data) {}
-
-    public static void main(String[] args) {
-        EventBus bus = new EventBus();
-        bus.subscribe("order.placed", e ->
-            System.out.println("📧 Email: " + e.data().get("email")));
-        bus.subscribe("order.placed", e ->
-            System.out.println("📦 Inventory updated"));
-
-        bus.publish(new Event("order.placed",
-            Map.of("email", "user@test.com", "product", "Widget")));
-    }
-}`}
-  go={`type Event struct {
-    Type      string
-    Data      map[string]interface{}
-    Timestamp time.Time
-}
-
-type Handler func(Event)
-
-type EventBus struct {
-    mu       sync.RWMutex
-    handlers map[string][]Handler
-    store    []Event
-}
-
-func NewEventBus() *EventBus {
-    return &EventBus{
-        handlers: make(map[string][]Handler),
-    }
-}
-
-func (eb *EventBus) Subscribe(eventType string, h Handler) {
-    eb.mu.Lock()
-    defer eb.mu.Unlock()
-    eb.handlers[eventType] = append(eb.handlers[eventType], h)
-}
-
-func (eb *EventBus) Publish(event Event) {
-    event.Timestamp = time.Now()
-    eb.mu.Lock()
-    eb.store = append(eb.store, event)
-    handlers := eb.handlers[event.Type]
-    eb.mu.Unlock()
-
-    for _, h := range handlers {
-        h(event)
-    }
-}`}
-  cpp={`class EventBus {
-    using Handler = std::function<void(const Event&)>;
-    std::unordered_map<std::string, std::vector<Handler>> handlers_;
-    std::vector<Event> store_;
-    std::mutex mutex_;
-
-public:
-    void subscribe(const std::string& type, Handler handler) {
-        std::lock_guard<std::mutex> lock(mutex_);
-        handlers_[type].push_back(std::move(handler));
-    }
-
-    void publish(Event event) {
-        std::lock_guard<std::mutex> lock(mutex_);
-        store_.push_back(event);
-        auto it = handlers_.find(event.type);
-        if (it != handlers_.end()) {
-            for (auto& handler : it->second) {
-                handler(event);
-            }
-        }
-    }
-};`}
-/>
 
 ---
 
@@ -242,3 +87,13 @@ public:
 A) Order service calls each service directly  B) Order service publishes an event; each service subscribes
 
 **Answer: B** — Event-driven design lets each service react independently. Adding new consumers (e.g., analytics) requires zero changes to the order service.
+
+---
+
+## 🎯 Frequently Asked Interview Questions
+
+1. What is event sourcing and how does it differ from traditional CRUD?
+2. How do you handle event ordering in a distributed event-driven system?
+3. Compare event-driven architecture with request-response architecture.
+4. How does Uber use event-driven architecture for ride matching?
+5. What is CQRS and how does it complement event sourcing?

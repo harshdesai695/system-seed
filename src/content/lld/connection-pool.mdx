@@ -373,3 +373,13 @@ public:
 A) Create an 11th connection  B) Block until a connection is returned, or timeout
 
 **Answer: B** — The pool enforces its max size. The request should block (wait) with a timeout. If no connection is returned within the timeout, throw an exception.
+
+---
+
+## 🎯 Frequently Asked Interview Questions
+
+1. Design a database connection pool. What are the core operations?
+2. How do you handle connection leaks (connections never returned)?
+3. What is the optimal pool size and how do you calculate it?
+4. How does HikariCP achieve the fastest connection pool performance?
+5. Design health checking for pooled connections to detect stale connections.

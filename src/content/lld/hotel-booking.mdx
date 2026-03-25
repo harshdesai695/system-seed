@@ -336,3 +336,13 @@ public:
 A) First-come-first-served with no locks  B) Use a lock/transaction when creating reservations
 
 **Answer: B** — The `make_reservation` method should be thread-safe. Check availability and create the reservation atomically within a lock or database transaction.
+
+---
+
+## 🎯 Frequently Asked Interview Questions
+
+1. Design a hotel booking system like Booking.com.
+2. How do you handle concurrent bookings for the same room?
+3. What design patterns are useful here? (Strategy for pricing, Observer for notifications)
+4. How do you implement room availability search across date ranges?
+5. Design the cancellation and refund workflow.

@@ -33,160 +33,6 @@ A **heartbeat** is a periodic signal sent between nodes in a distributed system 
 | **Gossip** | Nodes share heartbeat info with each other | Cassandra, DynamoDB |
 | **Lease-based** | Node holds a lease; must renew before expiry | Chubby, etcd leader election |
 
----
-
-## 💻 Code Example: Heartbeat Monitor
-
-<CodeBlock
-  title="Heartbeat Monitor"
-  python={`import time
-import threading
-from typing import Dict
-
-class HeartbeatMonitor:
-    def __init__(self, timeout: float = 10.0):
-        self.timeout = timeout
-        self.heartbeats: Dict[str, float] = {}
-        self.lock = threading.Lock()
-        self._running = True
-
-    def receive_heartbeat(self, node_id: str):
-        with self.lock:
-            self.heartbeats[node_id] = time.time()
-            print(f"♥ Heartbeat from {node_id}")
-
-    def check_health(self) -> dict:
-        now = time.time()
-        status = {}
-        with self.lock:
-            for node_id, last_beat in self.heartbeats.items():
-                elapsed = now - last_beat
-                if elapsed < self.timeout:
-                    status[node_id] = "HEALTHY"
-                elif elapsed < self.timeout * 2:
-                    status[node_id] = "SUSPECT"
-                else:
-                    status[node_id] = "DEAD"
-        return status
-
-    def start_monitoring(self, interval: float = 5.0):
-        def monitor_loop():
-            while self._running:
-                health = self.check_health()
-                for node, state in health.items():
-                    if state != "HEALTHY":
-                        print(f"⚠ {node}: {state}")
-                time.sleep(interval)
-        thread = threading.Thread(target=monitor_loop, daemon=True)
-        thread.start()
-
-# Usage
-monitor = HeartbeatMonitor(timeout=10.0)
-monitor.start_monitoring()
-monitor.receive_heartbeat("node-1")
-monitor.receive_heartbeat("node-2")`}
-  java={`import java.util.concurrent.*;
-
-public class HeartbeatMonitor {
-    private final ConcurrentHashMap<String, Long> heartbeats
-        = new ConcurrentHashMap<>();
-    private final long timeoutMs;
-    private final ScheduledExecutorService scheduler
-        = Executors.newSingleThreadScheduledExecutor();
-
-    public HeartbeatMonitor(long timeoutMs) {
-        this.timeoutMs = timeoutMs;
-    }
-
-    public void receiveHeartbeat(String nodeId) {
-        heartbeats.put(nodeId, System.currentTimeMillis());
-        System.out.println("♥ Heartbeat from " + nodeId);
-    }
-
-    public void startMonitoring(long intervalMs) {
-        scheduler.scheduleAtFixedRate(() -> {
-            long now = System.currentTimeMillis();
-            heartbeats.forEach((node, lastBeat) -> {
-                long elapsed = now - lastBeat;
-                if (elapsed > timeoutMs * 2) {
-                    System.out.println("☠ " + node + ": DEAD");
-                } else if (elapsed > timeoutMs) {
-                    System.out.println("⚠ " + node + ": SUSPECT");
-                }
-            });
-        }, 0, intervalMs, TimeUnit.MILLISECONDS);
-    }
-}`}
-  go={`type HeartbeatMonitor struct {
-    mu         sync.RWMutex
-    heartbeats map[string]time.Time
-    timeout    time.Duration
-}
-
-func NewMonitor(timeout time.Duration) *HeartbeatMonitor {
-    return &HeartbeatMonitor{
-        heartbeats: make(map[string]time.Time),
-        timeout:    timeout,
-    }
-}
-
-func (m *HeartbeatMonitor) ReceiveHeartbeat(nodeID string) {
-    m.mu.Lock()
-    defer m.mu.Unlock()
-    m.heartbeats[nodeID] = time.Now()
-    fmt.Printf("♥ Heartbeat from %s\\n", nodeID)
-}
-
-func (m *HeartbeatMonitor) CheckHealth() map[string]string {
-    m.mu.RLock()
-    defer m.mu.RUnlock()
-    status := make(map[string]string)
-    for node, lastBeat := range m.heartbeats {
-        elapsed := time.Since(lastBeat)
-        switch {
-        case elapsed < m.timeout:
-            status[node] = "HEALTHY"
-        case elapsed < m.timeout*2:
-            status[node] = "SUSPECT"
-        default:
-            status[node] = "DEAD"
-        }
-    }
-    return status
-}`}
-  cpp={`class HeartbeatMonitor {
-    std::unordered_map<std::string,
-        std::chrono::steady_clock::time_point> heartbeats_;
-    std::mutex mutex_;
-    std::chrono::seconds timeout_;
-
-public:
-    HeartbeatMonitor(int timeoutSec)
-        : timeout_(timeoutSec) {}
-
-    void receiveHeartbeat(const std::string& nodeId) {
-        std::lock_guard<std::mutex> lock(mutex_);
-        heartbeats_[nodeId] = std::chrono::steady_clock::now();
-    }
-
-    std::map<std::string, std::string> checkHealth() {
-        std::lock_guard<std::mutex> lock(mutex_);
-        auto now = std::chrono::steady_clock::now();
-        std::map<std::string, std::string> status;
-        for (auto& [node, last] : heartbeats_) {
-            auto elapsed = std::chrono::duration_cast<
-                std::chrono::seconds>(now - last);
-            if (elapsed < timeout_)
-                status[node] = "HEALTHY";
-            else if (elapsed < timeout_ * 2)
-                status[node] = "SUSPECT";
-            else
-                status[node] = "DEAD";
-        }
-        return status;
-    }
-};`}
-/>
 
 ---
 
@@ -215,3 +61,13 @@ public:
 A) Nothing, the system adjusts  B) Healthy nodes are falsely marked dead
 
 **Answer: B** — If latency exceeds the timeout, perfectly healthy nodes will be incorrectly marked as failed. Use a higher timeout or implement a "suspect" state with retries.
+
+---
+
+## 🎯 Frequently Asked Interview Questions
+
+1. How do you distinguish between a slow node and a dead node?
+2. What happens when a heartbeat mechanism produces false positives?
+3. Compare heartbeat-based detection vs gossip protocol for failure detection.
+4. How does Kubernetes use liveness and readiness probes?
+5. Design a failure detection system for a 1000-node distributed cluster.

@@ -368,3 +368,20 @@ print(cache.get(2))  # -1 (evicted)`}
 A) Key A (least recently used)  B) Key B (least frequently used)
 
 **Answer: B** — LFU evicts by frequency. Key B has frequency 2 vs Key A's frequency 100. Key B is evicted regardless of recency.
+
+
+---
+
+## 🛠️ Try It Yourself
+
+<LRUCacheVisualSim />
+
+---
+
+## 🎯 Frequently Asked Interview Questions
+
+1. Implement an LRU cache with O(1) get and put operations.
+2. What data structures are needed for an efficient LRU cache?
+3. Compare LRU vs LFU cache eviction strategies. When is each better?
+4. How would you implement a thread-safe LRU cache?
+5. Design a cache with TTL (time-to-live) expiration support.

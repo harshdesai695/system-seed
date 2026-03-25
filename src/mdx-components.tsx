@@ -26,6 +26,15 @@ import {
   RateLimiterSim,
   ConsistentHashingSim,
 } from "@/components/mdx/simulators";
+import {
+  MessageQueueSim,
+  CAPTheoremSim,
+  CircuitBreakerSim,
+  DNSSim,
+  ParkingLotSim,
+  ElevatorSim,
+  LRUCacheVisualSim,
+} from "@/components/mdx/simulators-v2";
 
 function Table(props: ComponentPropsWithoutRef<"table">) {
   return (
@@ -57,5 +66,12 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
     CacheSim,
     RateLimiterSim,
     ConsistentHashingSim,
+    MessageQueueSim,
+    CAPTheoremSim,
+    CircuitBreakerSim,
+    DNSSim,
+    ParkingLotSim,
+    ElevatorSim,
+    LRUCacheVisualSim,
   };
 }

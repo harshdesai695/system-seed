@@ -39,82 +39,6 @@ Every time you visit a website, DNS is at work. **Cloudflare's 1.1.1.1** and **G
 | **TXT** | Arbitrary text (verification) | SPF, DKIM email validation |
 | **TTL** | Time to live (cache duration) | `300` (5 minutes) |
 
----
-
-## 💻 Code Example: DNS Lookup
-
-<CodeBlock
-  title="DNS Lookup"
-  python={`import socket
-
-# Simple DNS lookup
-def dns_lookup(domain: str):
-    try:
-        ip = socket.gethostbyname(domain)
-        print(f"{domain} → {ip}")
-        return ip
-    except socket.gaierror:
-        print(f"DNS lookup failed for {domain}")
-        return None
-
-# Get all IPs (load balanced domains have multiple)
-def dns_lookup_all(domain: str):
-    try:
-        results = socket.getaddrinfo(domain, 80)
-        ips = set(r[4][0] for r in results)
-        for ip in ips:
-            print(f"{domain} → {ip}")
-        return list(ips)
-    except socket.gaierror:
-        return []
-
-dns_lookup("google.com")          # google.com → 142.250.80.46
-dns_lookup_all("netflix.com")     # Multiple IPs (CDN/LB)`}
-  java={`import java.net.InetAddress;
-
-public class DnsLookup {
-    public static void lookup(String domain) {
-        try {
-            // Single lookup
-            InetAddress addr = InetAddress.getByName(domain);
-            System.out.println(domain + " → " + addr.getHostAddress());
-
-            // All IPs (load-balanced domains)
-            InetAddress[] allAddrs = InetAddress.getAllByName(domain);
-            for (InetAddress a : allAddrs) {
-                System.out.println("  IP: " + a.getHostAddress());
-            }
-        } catch (Exception e) {
-            System.out.println("DNS lookup failed: " + e.getMessage());
-        }
-    }
-}`}
-  go={`func dnsLookup(domain string) {
-    ips, err := net.LookupHost(domain)
-    if err != nil {
-        fmt.Printf("DNS lookup failed: %v\\n", err)
-        return
-    }
-    for _, ip := range ips {
-        fmt.Printf("%s → %s\\n", domain, ip)
-    }
-}`}
-  cpp={`#include <netdb.h>
-#include <arpa/inet.h>
-
-void dnsLookup(const std::string& domain) {
-    struct hostent* host = gethostbyname(domain.c_str());
-    if (!host) {
-        std::cerr << "DNS lookup failed" << std::endl;
-        return;
-    }
-    for (int i = 0; host->h_addr_list[i]; i++) {
-        char ip[INET_ADDRSTRLEN];
-        inet_ntop(AF_INET, host->h_addr_list[i], ip, sizeof(ip));
-        std::cout << domain << " → " << ip << std::endl;
-    }
-}`}
-/>
 
 ---
 
@@ -143,6 +67,23 @@ void dnsLookup(const std::string& domain) {
 A) The server didn't restart  B) DNS caches still hold the old IP (TTL hasn't expired)
 
 **Answer: B** — DNS records have a TTL (Time to Live). Until the cached record expires, resolvers return the old IP.
+
+
+---
+
+## 🛠️ Try It Yourself
+
+<DNSSim />
+
+---
+
+## 🎯 Frequently Asked Interview Questions
+
+1. Walk me through what happens when you type google.com in a browser.
+2. How does DNS-based load balancing work?
+3. What is DNS propagation delay and how does it affect deployments?
+4. How does Cloudflare's 1.1.1.1 DNS improve performance and privacy?
+5. What is DNS poisoning and how do you prevent it?
 
 ---
 
