@@ -13,8 +13,6 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getConceptsByCategory } from "@/config/concepts.config";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Badge } from "@/components/ui/badge";
 
 const hldConcepts = getConceptsByCategory("hld");
 const lldConcepts = getConceptsByCategory("lld");
@@ -46,7 +44,7 @@ export function Sidebar({ className }: { className?: string }) {
         </Link>
       </div>
 
-      <ScrollArea className="flex-1 px-3 py-4">
+      <div className="flex-1 min-h-0 overflow-y-auto px-3 py-4">
         <nav className="space-y-1">
           {/* HLD Section */}
           <button
@@ -150,7 +148,7 @@ export function Sidebar({ className }: { className?: string }) {
             )}
           </AnimatePresence>
         </nav>
-      </ScrollArea>
+      </div>
     </aside>
   );
 }
